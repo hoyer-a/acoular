@@ -126,3 +126,7 @@ from .tprocess import (
     WriteWAV,
 )
 from .trajectory import Trajectory
+from .loudness import (
+    LoudnessStationary,
+    LoudnessTimevariant
+)
