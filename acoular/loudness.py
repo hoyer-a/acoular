@@ -6,119 +6,93 @@ from mosqito import (
 from acoular import (
     TimeSamples,
 )
-import matplotlib.pyplot as plt
+import wave
 
 
 class _Loudness:
     """
-    Parent class for stationary and timevariant loudness classes"""
-    
-    def __init__(self, filename):
-        self.file = filename
-
-    def _load_data(self):
-        """
-        Private method to read data from file. For internal use only
-        """
-
-        # Check for file type and load data
-        if self.file.endswith(".h5"):
-            ts = TimeSamples(name=self.file)
-            self.num_channels = ts.numchannels
-            self.num_samples = ts.numsamples
-            self.fs = ts.sample_freq
-            self.data = np.array(ts.data[:])
-        elif self.file.endswith(".wav"):
-            self.fs, self.data = sc.io.wavfile.read
-            self.num_channels = self.data.shape[0]
-            self.num_samples = self.data.shape[1]
-        else:
-            raise TypeError('input file must be h5 or wave')
-
-    def _resample_to_48_kHz(self):
-        """
-        Resamples a NumPy array from the original sampling rate to the target 
-        sampling rate.
-
-        Parameters:
-        -----------
-        data (np.ndarray) : The input array to be resampled.
-        original_rate (float): The original sampling rate in Hz.
-        target_rate (float): The target sampling rate in Hz.
-
-        Returns:
-        ---------
-        np.ndarray: The resampled array.
-        """
-        # Calculate the number of samples in the resampled array
-        num_samples = int(len(self.data) * 48000 / self.fs)
-
-        # Perform the resampling
-        resampled_data = sc.signal.resample(self.data, num_samples)
-
-        self.num_samples = num_samples
-        self.data = resampled_data
-        self.fs = 48000
-        return self.data
-
-
-class LoudnessStationary(_Loudness):
-    """
-    Calculates the stationary loudness from h5 and wave files.
+    Parent class for stationary and timevariant loudness classes
 
     Parameters
     ----------
     filename : string
         Full path to file.
+    cailb : Calib, optional
+        Calibration data, instance of Calib class
+    """
+
+    def __init__(self, filename, calib=None):
+        self.file = filename
+        self._calib = calib
+
+    def _get_dimensions(self):
+        """
+        Private method to determine file dimensions (N_samples, N_channels, fs)
+        without reading entire data into memory
+        """
+        if self.file.endswith(".h5"):
+            self.ts = TimeSamples(name=self.file, calib=self._calib)
+            self.num_channels = self.ts.numchannels
+            self.num_samples = self.ts.numsamples
+            self.fs = self.ts.sample_freq
+        elif self.file.endswith(".wav"):
+            with wave.open(self.file, "rb") as file:
+                self.num_channels = file.getnchannels()
+                self.num_samples = file.getnframes()
+                self.fs = file.getframerate()
+        else:
+            raise TypeError('input file must be h5 or wave')
+
+    def _load_data(self):
+        """
+        Private method to read time data from file.
+        """
+        # Check for file type and load data
+        if self.file.endswith(".h5"):
+            self.data = np.array(self.ts.data[:])
+        elif self.file.endswith(".wav"):
+            self.data = sc.io.wavfile.read[1]
+        else:
+            raise TypeError('input file must be h5 or wave')
+
+
+class LoudnessStationary(_Loudness):
+    """
+    Calculates the stationary loudness from h5 and wave files.
     """
     def __init__(self, filename):
         super().__init__(filename)  # Call the parent class's initializer
         self._calculate_loudness()  # Call the loudness calculation method
 
-    # probably better as a sperate function outside the class?!
-    # Just for Testing
-    def plot_loudness_bark(self):
-        """
-        Plots the loudness over time
-        """
-        plt.figure()
-        plt.plot(self.bark_axis, self.specific_loudness)
-        plt.xlabel('bark')
-        plt.ylabel('sone')
-        plt.show()
-        None
-
     @property
     def overall_loudness(self):
         """
-        Return overall loudness
+        Return overall loudness (shape: `N_channels`).
         """
         return self.N
 
     @property
     def specific_loudness(self):
         """
-        Return specific loudness in sones/bark per time sample
+        Return specific loudness in sones/bark per channel (shape: `N_bark x
+        N_channels`).
         """
         return self.N_specific
 
     def _calculate_loudness(self):
         """
-        Private function to calculate overall and specific loudness. Further
-        returns bark-axis for plotting"""
-
-        # load file
-        self._load_data()
-        # resamplt to 48 kHz since mosqito only works on 48 kHz
-        if self.fs != 48e3:
-            self.data = self._resample_to_48_kHz()
+        Private function to calculate overall and specific loudness.
+        """
+        # get dimensions of file
+        self._get_dimensions()
         # check length of input, large files will be processed in blocks
         if self.num_samples < 960000:
-            # calculate stationary loudness
-            self.N, self.N_specific, self.bark_axis = \
-                loudness_zwst(self.data[:, 0], self.fs)
+            self._load_data()
+            self.N, self.N_specific = \
+                loudness_zwst(self.data, self.fs)[0:2]
         else:
             print('call block processing function')
+            # call block processing method & calculate loudness in blocks
 
 
 class LoudnessTimevariant(_Loudness):
@@ -138,9 +112,6 @@ class LoudnessTimevariant(_Loudness):
 
         # load file
         self._load_data()
-        # resamplt to 48 kHz since mosqito only works on 48 kHz
-        if self.fs != 48e3:
-            self.data = self._resample_to_48_kHz()
         # check length of input, large files will be processed in blocks
         if self.num_samples < 960000:
             # calculate timevariant loudness

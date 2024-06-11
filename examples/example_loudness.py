@@ -27,8 +27,10 @@ fn = r"C:\Users\HP\acoular\examples\three_sources.h5"
 
 stat = LoudnessStationary(fn)
 
+#%%
+fs = stat.fs
+channels = stat.num_channels
+n = stat.num_samples
 specific_loudness = stat.specific_loudness
 total_loudness = stat.overall_loudness
-stat.plot_loudness_bark()
 
-print(total_loudness)
