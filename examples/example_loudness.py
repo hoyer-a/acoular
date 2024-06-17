@@ -14,7 +14,6 @@ from acoular import (
     TimeInOut,
     WNoiseGenerator,
     WriteH5,
-    MicGeom,
     LoudnessStationary,
     Plot
 )

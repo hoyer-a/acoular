@@ -136,23 +136,11 @@ class Plot:
     def __init__(self, loudness_instance, m):
         self.loudness_instance = loudness_instance
         self.m = m
-        self.N = self._get_overall_loudness()
-        self.N_specific = self._get_specific_loudness()
+        self.N = loudness_instance.overall_loudness
+        self.N_specific = loudness_instance.specific_loudness
         self.mpos = m.mpos[:2, :]
 
         self._create_plot()
-
-    def _get_overall_loudness(self):
-        """
-        Retrieve overall loudness from the loudness instance.
-        """
-        return self.loudness_instance.overall_loudness
-
-    def _get_specific_loudness(self):
-        """
-        Retrieve specific loudness from the loudness instance.
-        """
-        return self.loudness_instance.specific_loudness
 
     def _create_plot(self):
         """
@@ -161,22 +149,15 @@ class Plot:
         self.fig, (self.ax, self.ax2) = plt.subplots(2, 1)
         self.ax.set_title('Click on point to plot specific loudness')
         self.ax.axis('equal')
+        self.ax.set_xlabel('x-Position [cm]')
+        self.ax.set_ylabel('y-Position [cm]')
         self.ax.grid(True)
         self.line, = self.ax.plot(self.mpos[0, :], self.mpos[1, :], 'o', picker=True, pickradius=5)
-        
-
 
         self.browser = PointBrowser(self)
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
 
-        plt.show()
-
-    def plot_overall_loudness(self):
-        """
-        Method to plot overall loudness.
-        """
-        self.ax.plot(self.mpos[0, :], self.mpos[1, :], 'o', picker=True, pickradius=5)
         plt.show()
 
     def plot_specific_loudness(self, dataind):
@@ -187,9 +168,10 @@ class Plot:
         self.ax2.plot(self.N_specific[:, dataind])
         self.ax2.set_ylim(0, np.max(self.N_specific) + 1)
         self.ax2.set_title('Specific Loudness')
+        self.ax2.set_xlabel('Bark')
+        self.ax2.set_ylabel('Sone')
         self.ax2.grid(True)
         self.fig.canvas.draw()
-
 
 class PointBrowser:
     """
