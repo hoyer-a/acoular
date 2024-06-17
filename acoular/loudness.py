@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sc
+import matplotlib.pyplot as plt
 from mosqito import (
     loudness_zwtv,
     loudness_zwst)
@@ -119,3 +120,139 @@ class LoudnessTimevariant(_Loudness):
                 loudness_zwtv(self.data[:, 0], self.fs)
         else:
             print('call block processing function')
+
+class Plot:
+    """
+    Class for plotting loudness data from LoudnessStationary or LoudnessTimevariant instances.
+
+    Parameters
+    ----------
+    loudness_instance : instance
+        Instance of LoudnessStationary or LoudnessTimevariant.
+    m : MicGeom
+        Instance of the MicGeom class with microphone positions.
+    """
+
+    def __init__(self, loudness_instance, m):
+        self.loudness_instance = loudness_instance
+        self.m = m
+        self.N = self._get_overall_loudness()
+        self.N_specific = self._get_specific_loudness()
+        self.mpos = m.mpos[:2, :]
+
+        self._create_plot()
+
+    def _get_overall_loudness(self):
+        """
+        Retrieve overall loudness from the loudness instance.
+        """
+        return self.loudness_instance.overall_loudness
+
+    def _get_specific_loudness(self):
+        """
+        Retrieve specific loudness from the loudness instance.
+        """
+        return self.loudness_instance.specific_loudness
+
+    def _create_plot(self):
+        """
+        Create interactive plot.
+        """
+        self.fig, (self.ax, self.ax2) = plt.subplots(2, 1)
+        self.ax.set_title('Click on point to plot specific loudness')
+        self.ax.axis('equal')
+        self.ax.grid(True)
+        self.line, = self.ax.plot(self.mpos[0, :], self.mpos[1, :], 'o', picker=True, pickradius=5)
+        
+
+
+        self.browser = PointBrowser(self)
+        self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
+        self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
+
+        plt.show()
+
+    def plot_overall_loudness(self):
+        """
+        Method to plot overall loudness.
+        """
+        self.ax.plot(self.mpos[0, :], self.mpos[1, :], 'o', picker=True, pickradius=5)
+        plt.show()
+
+    def plot_specific_loudness(self, dataind):
+        """
+        Method to plot specific loudness.
+        """
+        self.ax2.clear()
+        self.ax2.plot(self.N_specific[:, dataind])
+        self.ax2.set_ylim(0, np.max(self.N_specific) + 1)
+        self.ax2.set_title('Specific Loudness')
+        self.ax2.grid(True)
+        self.fig.canvas.draw()
+
+
+class PointBrowser:
+    """
+    Click on a point to select and highlight it -- the data that
+    generated the point will be shown in the lower Axes.  Use the 'n'
+    and 'p' keys to browse through the next and previous points
+    """
+
+    def __init__(self, plot_instance):
+        self.plot_instance = plot_instance
+        self.lastind = 0
+
+        self.text = self.plot_instance.ax.text(0.05, 0.95, 'selected: none',
+                                               transform=self.plot_instance.ax.transAxes, va='top')
+        self.selected, = self.plot_instance.ax.plot([self.plot_instance.mpos[0, 0]], 
+                                                     [self.plot_instance.mpos[1, 0]], 'o', 
+                                                     ms=12, alpha=0.4, color='yellow', visible=False)
+
+    def on_press(self, event):
+        if self.lastind is None:
+            return
+        if event.key not in ('n', 'p'):
+            return
+        if event.key == 'n':
+            inc = 1
+        else:
+            inc = -1
+
+        self.lastind += inc
+        self.lastind = np.clip(self.lastind, 0, len(self.plot_instance.mpos[0]) - 1)
+        self.update()
+
+    def on_pick(self, event):
+        if event.artist != self.plot_instance.line:
+            return True
+
+        N = len(event.ind)
+        if not N:
+            return True
+
+        # the click locations
+        x = event.mouseevent.xdata
+        y = event.mouseevent.ydata
+
+        distances = np.hypot(x - self.plot_instance.mpos[0, event.ind], 
+                             y - self.plot_instance.mpos[1, event.ind])
+        indmin = distances.argmin()
+        dataind = event.ind[indmin]
+
+        self.lastind = dataind
+        self.update()
+
+    def update(self):
+        if self.lastind is None:
+            return
+
+        dataind = self.lastind
+
+        self.plot_instance.plot_specific_loudness(dataind)
+
+        self.selected.set_visible(True)
+        self.selected.set_data(self.plot_instance.mpos[0, dataind], self.plot_instance.mpos[1, dataind])
+
+        self.text.set_text('selected: %d' % dataind)
+        self.plot_instance.fig.canvas.draw()
+
