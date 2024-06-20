@@ -140,8 +140,6 @@ class Plot:
         self.N_specific = loudness_instance.specific_loudness
         self.mpos = m.mpos[:2, :]
 
-        self._create_plot()
-
     def _create_plot(self):
         """
         Create interactive plot.
@@ -157,7 +155,6 @@ class Plot:
         self.browser = PointBrowser(self)
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
-
         plt.show()
 
     def plot_specific_loudness(self, dataind):
@@ -171,19 +168,24 @@ class Plot:
         self.ax2.set_xlabel('Bark')
         self.ax2.set_ylabel('Sone')
         self.ax2.grid(True)
+        overall_loudness = self.N[dataind]
+        self.textbox = self.ax2.text(0.95, 0.95, '', transform=self.ax2.transAxes,
+                                 verticalalignment='top', horizontalalignment='left',
+                                 bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='white'))
+        self.textbox.set_text(f'Overall Loudness: {overall_loudness:.2f} Sone')
+    
         self.fig.canvas.draw()
 
 class PointBrowser:
     """
     Click on a point to select and highlight it -- the data that
     generated the point will be shown in the lower Axes.  Use the 'n'
-    and 'p' keys to browse through the next and previous points
+    and 'p' keys to browse through the next and previous points.
     """
 
     def __init__(self, plot_instance):
         self.plot_instance = plot_instance
         self.lastind = 0
-
         self.text = self.plot_instance.ax.text(0.05, 0.95, 'selected: none',
                                                transform=self.plot_instance.ax.transAxes, va='top')
         self.selected, = self.plot_instance.ax.plot([self.plot_instance.mpos[0, 0]], 
@@ -191,37 +193,21 @@ class PointBrowser:
                                                      ms=12, alpha=0.4, color='yellow', visible=False)
 
     def on_press(self, event):
-        if self.lastind is None:
+        if self.lastind is None or event.key not in ('n', 'p'):
             return
-        if event.key not in ('n', 'p'):
-            return
-        if event.key == 'n':
-            inc = 1
-        else:
-            inc = -1
-
-        self.lastind += inc
-        self.lastind = np.clip(self.lastind, 0, len(self.plot_instance.mpos[0]) - 1)
+        self.lastind = np.clip(self.lastind + (1 if event.key == 'n' else -1), 0, len(self.plot_instance.mpos[0]) - 1)
         self.update()
 
     def on_pick(self, event):
         if event.artist != self.plot_instance.line:
             return True
 
-        N = len(event.ind)
-        if not N:
+        if not len(event.ind):
             return True
 
-        # the click locations
-        x = event.mouseevent.xdata
-        y = event.mouseevent.ydata
-
-        distances = np.hypot(x - self.plot_instance.mpos[0, event.ind], 
-                             y - self.plot_instance.mpos[1, event.ind])
-        indmin = distances.argmin()
-        dataind = event.ind[indmin]
-
-        self.lastind = dataind
+        x, y = event.mouseevent.xdata, event.mouseevent.ydata
+        distances = np.hypot(x - self.plot_instance.mpos[0, event.ind], y - self.plot_instance.mpos[1, event.ind])
+        self.lastind = event.ind[distances.argmin()]
         self.update()
 
     def update(self):
@@ -229,12 +215,9 @@ class PointBrowser:
             return
 
         dataind = self.lastind
-
         self.plot_instance.plot_specific_loudness(dataind)
-
         self.selected.set_visible(True)
-        self.selected.set_data(self.plot_instance.mpos[0, dataind], self.plot_instance.mpos[1, dataind])
-
-        self.text.set_text('selected: %d' % dataind)
+        self.selected.set_data([self.plot_instance.mpos[0, dataind]], [self.plot_instance.mpos[1, dataind]])
+        self.text.set_text(f'selected: {dataind}')
         self.plot_instance.fig.canvas.draw()
 
