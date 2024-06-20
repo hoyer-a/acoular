@@ -150,11 +150,19 @@ class Plot:
         self.ax.set_xlabel('x-Position [cm]')
         self.ax.set_ylabel('y-Position [cm]')
         self.ax.grid(True)
-        self.line, = self.ax.plot(self.mpos[0, :], self.mpos[1, :], 'o', picker=True, pickradius=5)
+        
+        # Use scatter to plot microphones with overall loudness as color
+        scatter = self.ax.scatter(self.mpos[0, :], self.mpos[1, :], c=self.N, cmap='viridis', picker=True, s=50)
+        self.line = scatter
 
+        # Add color bar
+        cbar = self.fig.colorbar(scatter, ax=self.ax)
+        cbar.set_label('Overall Loudness (Sone)')
+        
         self.browser = PointBrowser(self)
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
+
         plt.show()
 
     def plot_specific_loudness(self, dataind):
@@ -169,7 +177,7 @@ class Plot:
         self.ax2.set_ylabel('Sone')
         self.ax2.grid(True)
         overall_loudness = self.N[dataind]
-        self.textbox = self.ax2.text(0.95, 0.95, '', transform=self.ax2.transAxes,
+        self.textbox = self.ax2.text(0.05, 0.95, '', transform=self.ax2.transAxes,
                                  verticalalignment='top', horizontalalignment='left',
                                  bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='white'))
         self.textbox.set_text(f'Overall Loudness: {overall_loudness:.2f} Sone')

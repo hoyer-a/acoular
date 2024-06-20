@@ -32,6 +32,7 @@ mg = MicGeom(from_file=micgeofile)
 stat = LoudnessStationary(fn)
 plot_instance = Plot(stat, mg)
 
+
 #%%
 fs = stat.fs
 channels = stat.num_channels
@@ -39,3 +40,4 @@ n = stat.num_samples
 specific_loudness = stat.specific_loudness
 total_loudness = stat.overall_loudness
 
+plot_instance._create_plot()
