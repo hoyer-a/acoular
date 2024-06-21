@@ -89,8 +89,8 @@ class LoudnessStationary(_Loudness):
         # check length of input, large files will be processed in blocks
         if self.num_samples < 960000:
             self._load_data()
-            self.N, self.N_specific = \
-                loudness_zwst(self.data, self.fs)[0:2]
+            self.N, self.N_specific, self.bark_axis = \
+                loudness_zwst(self.data, self.fs)
         else:
             print('call block processing function')
             # call block processing method & calculate loudness in blocks
@@ -105,19 +105,54 @@ class LoudnessTimevariant(_Loudness):
     filename : string
         Full path to file.
     """
+    def __init__(self, filename):
+        super().__init__(filename)  # Call the parent class's initializer
+        self._calculate_loudness()  # Call the loudness calculation method
+    
+    @property
+    def overall_loudness(self):
+        """
+        Return overall loudness (shape: `N_channels`).
+        """
+        return self.N
+
+    @property
+    def specific_loudness(self):
+        """
+        Return specific loudness in sones/bark per channel (shape: `N_bark x
+        N_channels`).
+        """
+        return self.N_specific
 
     def _calculate_loudness(self):
         """
         Private function to calculate overall and specific loudness. Further
         returns bark-axis and time-axis for plotting"""
-
+        # get dimensions of file
+        self._get_dimensions()
         # load file
         self._load_data()
         # check length of input, large files will be processed in blocks
         if self.num_samples < 960000:
-            # calculate timevariant loudness
-            self.N, self.N_specific, self.bark_axis, self.time_axis = \
-                loudness_zwtv(self.data[:, 0], self.fs)
+            # Initialize storage for each variable
+            N_list = []
+            N_specific_list = []
+            bark_axis_list = []
+            time_axis_list = []
+            for i in range(self.num_channels):
+                # calculate timevariant loudness
+                N, N_specific, bark_axis, time_axis = \
+                    loudness_zwtv(self.data[:,i], self.fs)
+                # Append the results to the corresponding list
+                N_list.append(N)
+                N_specific_list.append(N_specific)
+                bark_axis_list.append(bark_axis)
+                time_axis_list.append(time_axis)
+            # Convert lists to numpy arrays and add a new dimension to separate iterations
+            self.N = np.array(N_list)  
+            self.N_specific = np.array(N_specific_list)  
+            self.bark_axis = np.array(bark_axis_list)  
+            self.time_axis = np.array(time_axis_list)  
         else:
             print('call block processing function')
 
@@ -138,6 +173,7 @@ class Plot:
         self.m = m
         self.N = loudness_instance.overall_loudness
         self.N_specific = loudness_instance.specific_loudness
+        self.bark_axis = loudness_instance.bark_axis
         self.mpos = m.mpos[:2, :]
 
     def _create_plot(self):
@@ -147,8 +183,8 @@ class Plot:
         self.fig, (self.ax, self.ax2) = plt.subplots(2, 1)
         self.ax.set_title('Click on point to plot specific loudness')
         self.ax.axis('equal')
-        self.ax.set_xlabel('x-Position [cm]')
-        self.ax.set_ylabel('y-Position [cm]')
+        self.ax.set_xlabel('x-Position [m]')
+        self.ax.set_ylabel('y-Position [m]')
         self.ax.grid(True)
         
         # Use scatter to plot microphones with overall loudness as color
@@ -170,7 +206,7 @@ class Plot:
         Method to plot specific loudness.
         """
         self.ax2.clear()
-        self.ax2.plot(self.N_specific[:, dataind])
+        self.ax2.plot(self.bark_axis, self.N_specific[:, dataind])
         self.ax2.set_ylim(0, np.max(self.N_specific) + 1)
         self.ax2.set_title('Specific Loudness')
         self.ax2.set_xlabel('Bark')
