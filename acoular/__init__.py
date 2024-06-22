@@ -129,5 +129,7 @@ from .trajectory import Trajectory
 from .loudness import (
     LoudnessStationary,
     LoudnessTimevariant,
-    Plot
+    LoudnessMicrophonePlot,
+    StaticPlot,
+    AnimatedPlot
 )

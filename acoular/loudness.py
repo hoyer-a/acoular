@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from mosqito import (
     loudness_zwtv,
     loudness_zwst)
@@ -156,9 +157,13 @@ class LoudnessTimevariant(_Loudness):
         else:
             print('call block processing function')
 
-class Plot:
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+class LoudnessMicrophonePlot:
     """
-    Class for plotting loudness data from LoudnessStationary or LoudnessTimevariant instances.
+    Base class for plotting loudness data over a microphone array.
 
     Parameters
     ----------
@@ -167,74 +172,35 @@ class Plot:
     m : MicGeom
         Instance of the MicGeom class with microphone positions.
     """
-
     def __init__(self, loudness_instance, m):
         self.loudness_instance = loudness_instance
         self.m = m
+        self.mpos = m.mpos[:2, :]
         self.N = loudness_instance.overall_loudness
         self.N_specific = loudness_instance.specific_loudness
         self.bark_axis = loudness_instance.bark_axis
-        self.mpos = m.mpos[:2, :]
+        
 
     def _create_plot(self):
         """
-        Create interactive plot.
+        Abstract method to create the main plot. To be implemented by subclasses.
         """
-        self.fig, (self.ax, self.ax2) = plt.subplots(2, 1)
-        self.ax.set_title('Click on point to plot specific loudness')
-        self.ax.axis('equal')
-        self.ax.set_xlabel('x-Position [m]')
-        self.ax.set_ylabel('y-Position [m]')
-        self.ax.grid(True)
-        
-        # Use scatter to plot microphones with overall loudness as color
-        scatter = self.ax.scatter(self.mpos[0, :], self.mpos[1, :], c=self.N, cmap='viridis', picker=True, s=50)
-        self.line = scatter
-
-        # Add color bar
-        cbar = self.fig.colorbar(scatter, ax=self.ax)
-        cbar.set_label('Overall Loudness (Sone)')
-        
-        self.browser = PointBrowser(self)
-        self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
-        self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
-
-        plt.show()
-
-    def plot_specific_loudness(self, dataind):
-        """
-        Method to plot specific loudness.
-        """
-        self.ax2.clear()
-        self.ax2.plot(self.bark_axis, self.N_specific[:, dataind])
-        self.ax2.set_ylim(0, np.max(self.N_specific) + 1)
-        self.ax2.set_title('Specific Loudness')
-        self.ax2.set_xlabel('Bark')
-        self.ax2.set_ylabel('Sone')
-        self.ax2.grid(True)
-        overall_loudness = self.N[dataind]
-        self.textbox = self.ax2.text(0.05, 0.95, '', transform=self.ax2.transAxes,
-                                 verticalalignment='top', horizontalalignment='left',
-                                 bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='white'))
-        self.textbox.set_text(f'Overall Loudness: {overall_loudness:.2f} Sone')
-    
-        self.fig.canvas.draw()
+        raise NotImplementedError("Subclasses should implement this method!")
 
 class PointBrowser:
     """
     Click on a point to select and highlight it -- the data that
-    generated the point will be shown in the lower Axes.  Use the 'n'
+    generated the point will be shown in the lower Axes. Use the 'n'
     and 'p' keys to browse through the next and previous points.
     """
-
     def __init__(self, plot_instance):
         self.plot_instance = plot_instance
         self.lastind = 0
         self.text = self.plot_instance.ax.text(0.05, 0.95, 'selected: none',
                                                transform=self.plot_instance.ax.transAxes, va='top')
-        self.selected, = self.plot_instance.ax.plot([self.plot_instance.mpos[0, 0]], 
-                                                     [self.plot_instance.mpos[1, 0]], 'o', 
-                                                     ms=12, alpha=0.4, color='yellow', visible=False)
+        self.selected, = self.plot_instance.ax.plot([self.plot_instance.mpos[0, 0]],
+                                                    [self.plot_instance.mpos[1, 0]], 'o',
+                                                    ms=12, alpha=0.4, color='yellow', visible=False)
 
     def on_press(self, event):
         if self.lastind is None or event.key not in ('n', 'p'):
@@ -258,10 +224,156 @@ class PointBrowser:
         if self.lastind is None:
             return
 
-        dataind = self.lastind
-        self.plot_instance.plot_specific_loudness(dataind)
+        self.plot_instance.update_plot(self.lastind)
         self.selected.set_visible(True)
-        self.selected.set_data([self.plot_instance.mpos[0, dataind]], [self.plot_instance.mpos[1, dataind]])
-        self.text.set_text(f'selected: {dataind}')
+        self.selected.set_data([self.plot_instance.mpos[0, self.lastind]], [self.plot_instance.mpos[1, self.lastind]])
+        self.text.set_text(f'selected: {self.lastind}')
         self.plot_instance.fig.canvas.draw()
 
+class AnimatedPlot(LoudnessMicrophonePlot):
+    """
+    Class for plotting animated loudness data from LoudnessTimevariant instances.
+    """
+    def __init__(self, loudness_instance, m):
+        super().__init__(loudness_instance, m)
+        self.time_steps = self.N.shape[1]  # Assuming the second dimension is time
+        self.current_animation = None
+        self._create_plot()
+
+    def _create_plot(self):
+        """
+        Create interactive plot with animation.
+        """
+        # Set up figure with three subplots
+        self.fig = plt.figure(figsize=(15, 10), layout="constrained")
+        spec = self.fig.add_gridspec(2, 2)
+        self.ax = self.fig.add_subplot(spec[0, :])
+        self.ax2 = self.fig.add_subplot(spec[1, 0])
+        self.ax3 = self.fig.add_subplot(spec[1, 1])
+
+        # Create first subplot displaying the microphone array
+        self.ax.set_title('Click on point to plot specific loudness')
+        self.ax.axis('equal')
+        self.ax.set_xlabel('x-Position [m]')
+        self.ax.set_ylabel('y-Position [m]')
+        self.ax.grid(True)
+
+        # Use scatter to plot microphones with averaged overall loudness as colorbar
+        self.scatter = self.ax.scatter(self.mpos[0, :], self.mpos[1, :], c=self.N.mean(axis=1), cmap='viridis', picker=True, s=50)
+        self.line = self.scatter
+        self.cbar = self.fig.colorbar(self.scatter, ax=self.ax)
+        self.cbar.set_label('Overall Loudness (Sone)')
+
+        # Set up the selection of points to display loudness data
+        self.browser = PointBrowser(self)
+        self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
+        self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
+
+        plt.show()
+
+    def plot_N_over_time(self, dataind):
+        """
+        Update the overall loudness over time plot.
+        """
+        # Create second subplot displaying the overall loudness of the selected microphone over time 
+        self.ax2.clear()
+        self.ax2.set_title('Overall Loudness Over Time')
+        self.ax2.set_xlabel('Time [s]')
+        self.ax2.set_ylabel('Overall Loudness [Sone]')
+        self.ax2.grid(True)
+        self.ax2.plot(np.linspace(0, self.time_steps / self.loudness_instance.fs, self.time_steps),
+                      self.N[dataind, :])
+        self.fig.canvas.draw()
+
+    def plot_N_specific_over_time(self, dataind):
+        """
+        Method to plot and animate specific loudness over the time.
+        """
+        # Create third subplot displaying the specific loudness of the selected microphone over time
+        self.ax3.clear()
+        self.ax3.set_ylim(0, np.max(self.N_specific) + 1)
+        self.ax3.set_title('Specific Loudness')
+        self.ax3.set_xlabel('Bark')
+        self.ax3.set_ylabel('Sone')
+        self.ax3.grid(True)
+
+        def update(frame):
+            self.line2.set_ydata(self.N_specific[dataind, :, frame])
+            return self.line2,
+
+        if self.current_animation is not None:
+            self.current_animation.event_source.stop()
+
+        self.current_animation = FuncAnimation(self.fig, update, frames=self.time_steps, interval=200, blit=True)
+
+        self.fig.canvas.draw()
+
+    def update_plot(self, dataind):
+        """
+        Method called by PointBrowser to update plots when a point is selected.
+        """
+        self.plot_N_over_time(dataind)
+        self.plot_N_specific_over_time(dataind)
+
+
+
+class StaticPlot(LoudnessMicrophonePlot):
+    """
+    Class for plotting static loudness data.
+    """
+
+    def __init__(self, loudness_instance, m):
+        super().__init__(loudness_instance, m)
+
+    def _create_plot(self):
+        """
+        Create interactive plot.
+        """
+        self.fig, (self.ax, self.ax2) = plt.subplots(2, 1)
+        self.ax.set_title('Click on point to plot specific loudness')
+        self.ax.axis('equal')
+        self.ax.set_xlabel('x-Position [m]')
+        self.ax.set_ylabel('y-Position [m]')
+        self.ax.grid(True)
+
+        if self.N.ndim == 2:  # Assuming shape (num_mics, num_time_steps)
+            self.N = self.N[:, 0]  # Use the first time step for the scatter plot
+
+        # Use scatter to plot microphones with overall loudness as color
+        scatter = self.ax.scatter(self.mpos[0, :], self.mpos[1, :], c=self.N, cmap='viridis', picker=True, s=50)
+        self.line = scatter
+
+        # Add color bar
+        cbar = self.fig.colorbar(scatter, ax=self.ax)
+        cbar.set_label('Overall Loudness (Sone)')
+
+        self.browser = PointBrowser(self)
+        self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
+        self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
+
+        plt.show()
+
+    def plot_specific_loudness(self, dataind):
+        """
+        Method to plot specific loudness.
+        """
+        self.ax2.clear()
+        self.ax2.plot(self.bark_axis, self.N_specific[:, dataind])
+        self.ax2.set_ylim(0, np.max(self.N_specific) + 1)
+        self.ax2.set_title('Specific Loudness')
+        self.ax2.set_xlabel('Bark')
+        self.ax2.set_ylabel('Sone')
+        self.ax2.grid(True)
+        overall_loudness = self.N[dataind]
+        self.textbox = self.ax2.text(0.05, 0.95, '', transform=self.ax2.transAxes,
+                                     verticalalignment='top', horizontalalignment='left',
+                                     bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='white'))
+        self.textbox.set_text(f'Overall Loudness: {overall_loudness:.2f} Sone')
+
+        self.fig.canvas.draw()
+
+    def update_plot(self, dataind):
+        """
+        Method called by PointBrowser to update plots when a point is selected.
+        """
+        self.plot_specific_loudness(dataind)
