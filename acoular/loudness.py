@@ -297,6 +297,9 @@ class AnimatedPlot(LoudnessMicrophonePlot):
         self.ax3.set_ylabel('Sone')
         self.ax3.grid(True)
 
+        # initialise plot for animation
+        self.line2, = self.ax3.plot(self.bark_axis[0], self.N_specific[dataind, :, 0])
+
         def update(frame):
             self.line2.set_ydata(self.N_specific[dataind, :, frame])
             return self.line2,
