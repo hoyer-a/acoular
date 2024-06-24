@@ -128,5 +128,8 @@ from .tprocess import (
 from .trajectory import Trajectory
 from .loudness import (
     LoudnessStationary,
-    LoudnessTimevariant
+    LoudnessTimevariant,
+    LoudnessMicrophonePlot,
+    StaticPlot,
+    AnimatedPlot
 )
