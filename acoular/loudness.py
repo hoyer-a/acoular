@@ -1,150 +1,97 @@
 import numpy as np
-import scipy as sc
+import warnings
+from traits.api import (
+    CArray,
+    Delegate,
+    Float,
+    HasPrivateTraits,
+    Int,
+    Trait,
+    Union,
+    observe,
+)
 from mosqito import (
     loudness_zwtv,
-    loudness_zwst)
+    loudness_zwst,
+    loudness_zwst_perseg)
 from acoular import (
     TimeSamples,
+    TimeInOut,
 )
-import matplotlib.pyplot as plt
+import math
 
-
-class _Loudness:
+class _Loudness(TimeInOut, HasPrivateTraits):
     """
-    Parent class for stationary and timevariant loudness classes"""
+    Parent class for stationary and timevariant loudness classes
+    """
+    source = Trait(TimeSamples)
     
-    def __init__(self, filename):
-        self.file = filename
+    #: Sampling frequency of output signal, as given by :attr:`source`.
+    sample_freq = Delegate('source')
 
-    def _load_data(self):
-        """
-        Private method to read data from file. For internal use only
-        """
+    #: Number of time data channels
+    numchannels = Delegate('source')
 
-        # Check for file type and load data
-        if self.file.endswith(".h5"):
-            ts = TimeSamples(name=self.file)
-            self.num_channels = ts.numchannels
-            self.num_samples = ts.numsamples
-            self.fs = ts.sample_freq
-            self.data = np.array(ts.data[:])
-        elif self.file.endswith(".wav"):
-            self.fs, self.data = sc.io.wavfile.read
-            self.num_channels = self.data.shape[0]
-            self.num_samples = self.data.shape[1]
-        else:
-            raise TypeError('input file must be h5 or wave')
+    numsamples = Delegate('source')
 
-    def _resample_to_48_kHz(self):
-        """
-        Resamples a NumPy array from the original sampling rate to the target 
-        sampling rate.
-
-        Parameters:
-        -----------
-        data (np.ndarray) : The input array to be resampled.
-        original_rate (float): The original sampling rate in Hz.
-        target_rate (float): The target sampling rate in Hz.
-
-        Returns:
-        ---------
-        np.ndarray: The resampled array.
-        """
-        # Calculate the number of samples in the resampled array
-        num_samples = int(len(self.data) * 48000 / self.fs)
-
-        # Perform the resampling
-        resampled_data = sc.signal.resample(self.data, num_samples)
-
-        self.num_samples = num_samples
-        self.data = resampled_data
-        self.fs = 48000
-        return self.data
-
-
-class LoudnessStationary(_Loudness):
+class LoudnessStationary(_Loudness, HasPrivateTraits):
     """
-    Calculates the stationary loudness from h5 and wave files.
+    Calculates the stationary loudness according to ISO 532-1 (Zwicker) 
+    from a given source.
+
+    Uses third party code from `mosqito 
+    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
 
     Parameters
-    ----------
-    filename : string
-        Full path to file.
+    ==========
+    source : TimeSamples
+        The input source as TimeSamples object.
+
+    References
+    ==========
+    - Acoustics –
+      Methods for calculating loudness –
+      Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
+    - Mosqito [...] tbd
     """
-    def __init__(self, filename):
-        super().__init__(filename)  # Call the parent class's initializer
-        self._calculate_loudness()  # Call the loudness calculation method
 
-    # probably better as a sperate function outside the class?!
-    # Just for Testing
-    def plot_loudness_bark(self):
-        """
-        Plots the loudness over time
-        """
-        plt.figure()
-        plt.plot(self.bark_axis, self.specific_loudness)
-        plt.xlabel('bark')
-        plt.ylabel('sone')
-        plt.show()
-        None
+    overall_loudness = Union(Float(), CArray(),
+                             desc="overall loudness (shape: `N_channels`)")
 
-    @property
-    def overall_loudness(self):
-        """
-        Return overall loudness
-        """
-        return self.N
-
-    @property
-    def specific_loudness(self):
-        """
-        Return specific loudness in sones/bark per time sample
-        """
-        return self.N_specific
+    specific_loudness = CArray(desc="specific loudness sones/bark per channel "
+                               "(shape: `N_bark x N_channels`).")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._calculate_loudness()
 
     def _calculate_loudness(self):
         """
-        Private function to calculate overall and specific loudness. Further
-        returns bark-axis for plotting"""
-
-        # load file
-        self._load_data()
-        # resamplt to 48 kHz since mosqito only works on 48 kHz
-        if self.fs != 48e3:
-            self.data = self._resample_to_48_kHz()
-        # check length of input, large files will be processed in blocks
-        if self.num_samples < 960000:
-            # calculate stationary loudness
-            self.N, self.N_specific, self.bark_axis = \
-                loudness_zwst(self.data[:, 0], self.fs)
-        else:
-            print('call block processing function')
-
-
-class LoudnessTimevariant(_Loudness):
-    """
-    Calculates the timevariant loudness from h5 and wave files.
-
-    Parameters
-    ----------
-    filename : string
-        Full path to file.
-    """
-
-    def _calculate_loudness(self):
+        Private function to calculate overall and specific loudness.
         """
-        Private function to calculate overall and specific loudness. Further
-        returns bark-axis and time-axis for plotting"""
+        print("Calculating loudness... depending on the file size, this might" 
+              " take a while")
 
-        # load file
-        self._load_data()
-        # resamplt to 48 kHz since mosqito only works on 48 kHz
-        if self.fs != 48e3:
-            self.data = self._resample_to_48_kHz()
-        # check length of input, large files will be processed in blocks
-        if self.num_samples < 960000:
-            # calculate timevariant loudness
-            self.N, self.N_specific, self.bark_axis, self.time_axis = \
-                loudness_zwtv(self.data[:, 0], self.fs)
-        else:
-            print('call block processing function')
+        # check input, large files will be processed channel wise
+        if (self.numsamples > self.sample_freq * 2.5 * 60 \
+            and self.numchannels > 96) \
+                or (self.numsamples > self.sample_freq * 14 * 60 \
+                    and self.numchannels > 16):
+
+            warnings.warn("File to big to be processed at once. File will be"
+                          " processed channel wise", RuntimeWarning)
+        
+            self.overall_loudness = np.zeros(self.numchannels)
+            self.specific_loudness = np.zeros((240, self.numchannels))
+
+            for i in range(self.numchannels):
+                N, N_spec = loudness_zwst(self.source.data[:,i], 
+                                          self.sample_freq)[0:2]
+                self.overall_loudness[i] = N
+                self.specific_loudness[:,i] = N_spec
+
+        else:   
+            self.overall_loudness, self.specific_loudness = \
+                loudness_zwst(self.source.data[:], self.sample_freq)[0:2]
+            
+
