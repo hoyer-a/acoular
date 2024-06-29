@@ -63,6 +63,12 @@ class LoudnessStationary(_Loudness, HasPrivateTraits):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @observe('source')
+    def _source_changed(self, event):
+        """
+        Observer method that is called whenever the `source` attribute changes.
+        """
         self._calculate_loudness()
 
     def _calculate_loudness(self):
