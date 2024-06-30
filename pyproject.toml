@@ -36,6 +36,8 @@ dependencies = [
     "scikit-learn",
     "tables>=3.4.4",
     "traits>=6.0",
+    "mosqito",
+    "matplotlib"
 ]
 maintainers = [
     {name = "Adam Kujawski", email = "adam.kujawski@tu-berlin.de"},
