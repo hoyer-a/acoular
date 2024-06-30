@@ -1,13 +1,14 @@
 import unittest
 import warnings
 from pathlib import Path
-from acoular import (LoudnessStationary)
+from acoular import (LoudnessStationary, LoudnessTimevariant)
 from acoular import (
     config,
     TimeSamples,
 )
 from mosqito import loudness_zwst
 import numpy as np
+import copy
 
 testdir = Path(__file__).parent
 moduledir = testdir.parent
@@ -16,14 +17,15 @@ config.global_caching = 'none'
 datafile = moduledir / 'examples' / 'example_data.h5'
 ts = TimeSamples(name=datafile)
 
-class TestStationaryLoudness(unittest.TestCase):
+class TestLoudnessStationary(unittest.TestCase):
     """
     Test the functionality of the LoudnessStationary class.
     
     Tests only functionality, not the results since LoudnessStationary 
-    uses validated third party code"""
+    uses validated third party code."""
 
-    ld_st = LoudnessStationary(source=ts)
+    ld_st = LoudnessStationary()
+    ld_st.source = ts
     overall_loudness = ld_st.overall_loudness
     specific_loudness = ld_st.specific_loudness
 
@@ -41,12 +43,35 @@ class TestStationaryLoudness(unittest.TestCase):
         # test for large file warning without time intensive calculation
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("error")
+            ts_large = copy.deepcopy(ts)
             try:
-                ts.numchannels = 97
-                ts.numsamples = ts.sample_freq * 3 * 60
-                ld_st_ = LoudnessStationary(source=ts)
+                ts_large.numchannels = 97
+                ts_large.numsamples = ts_large.sample_freq * 3 * 60
+                ld_st_ = LoudnessStationary(source=ts_large)
             except Warning as caught_warning:
-                self.skipTest(f"Warning raised: {caught_warning}")            
+                self.skipTest(f"Warning raised: {caught_warning}")  
+
+class TestLoudnessTimevariant(unittest.TestCase):       
+    """
+    Test the functionality of the LoudnessTimevariant class.
+    
+    Tests only functionality, not the results since LoudnessTimevariant 
+    uses validated third party code"""   
+
+    ld_tv = LoudnessTimevariant(source = ts)
+    overall_loudness = ld_tv.overall_loudness
+    specific_loudness = ld_tv.specific_loudness
+    n_samples = ld_tv.numsamples
+    fs = ld_tv.sample_freq
+
+    def test_result_shape(self):
+        # maybe compare to mosqito result -> resampling necessary for that
+        self.assertEqual(self.overall_loudness.shape, 
+                         (ts.numchannels, 250))
+        self.assertEqual(self.specific_loudness.shape, 
+                         (ts.numchannels, 240, 250))
+
+        
 
 if __name__ == '__main__':
     unittest.main()
