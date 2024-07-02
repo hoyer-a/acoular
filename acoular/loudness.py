@@ -7,6 +7,7 @@ from traits.api import (
     Float,
     HasPrivateTraits,
     Int,
+    String,
     Trait,
     Union,
     observe,
@@ -21,7 +22,7 @@ from acoular import (
 )
 import math
 
-class _Loudness(TimeInOut, HasPrivateTraits):
+class _Loudness(TimeInOut):
     """
     Parent class for stationary and timevariant loudness classes
     """
@@ -39,9 +40,25 @@ class _Loudness(TimeInOut, HasPrivateTraits):
 
     time_axis = CArray(desc="Time axis for timevariant loudness")
 
-    time_data = CArray(desc="Time data for loudness calculation")
+    _time_data = CArray(desc="Time data for loudness calculation")
 
-class LoudnessStationary(_Loudness, HasPrivateTraits):
+    start_sample = Int(0, desc="First sample for calculation")
+
+    end_sample = Int(numsamples, desc="Last sample for calculation")
+
+    _block_size = Int(4096, desc="Block size for fetching time data")
+
+    field_type = String("free", desc="Field type")
+
+    def _resample_to_48kHz(self):
+        self._time_data = \
+            resample(self._time_data[:], 
+                    int(48000 * self.numsamples / self.sample_freq))
+        self.sample_freq = 48000
+        self.numsamples= int(48000 * self.numsamples / self.sample_freq)
+        print("signal resampled to 48 kHz")
+
+class LoudnessStationary(_Loudness):
     """
     Calculates the stationary loudness according to ISO 532-1 (Zwicker) 
     from a given source.
@@ -75,9 +92,15 @@ class LoudnessStationary(_Loudness, HasPrivateTraits):
     def _source_changed(self, event):
         """
         Observer method that is called whenever the `source` attribute changes.
+        Fetches time data via result() in blocks of size `_block_size`.
         """
-        for res in self.source.result(self.numsamples):
-            self._time_data = res
+        self._time_data = np.empty((self.numsamples, self.numchannels))
+        i = 0
+
+        for res in self.source.result(self._block_size):
+            n_samples = res.shape[0]
+            self._time_data[i : i + n_samples] = res
+            i += n_samples
 
         self._calculate_loudness()
 
@@ -87,6 +110,9 @@ class LoudnessStationary(_Loudness, HasPrivateTraits):
         """
         print("Calculating stationary loudness... depending on the file size, " 
               "this might take a while")
+        
+        if self.sample_freq != 48000:
+            self._resample_to_48kHz()
 
         # check input, large files will be processed channel wise
         if (self.numsamples > self.sample_freq * 2.5 * 60 \
@@ -102,16 +128,18 @@ class LoudnessStationary(_Loudness, HasPrivateTraits):
 
             for i in range(self.numchannels):
                 N, N_spec, self.bark_axis = loudness_zwst(self._time_data[:,i], 
-                                          self.sample_freq)[0:3]
+                                          self.sample_freq, 
+                                          field_type=self.field_type)[0:3]
                 self.overall_loudness[i] = N
                 self.specific_loudness[:,i] = N_spec
 
         else:   
             self.overall_loudness, self.specific_loudness, self.bark_axis = \
-                loudness_zwst(self._time_data[:], self.sample_freq)[0:3]
+                loudness_zwst(self._time_data[:], self.sample_freq, 
+                              field_type=self.field_type)[0:3]
             
 
-class LoudnessTimevariant(_Loudness, HasPrivateTraits):
+class LoudnessTimevariant(_Loudness):
     """
     Calculates the timevariant loudness according to ISO 532-1 (Zwicker) 
     from a given source. Calculates loudness for timesteps of 64 samples.
@@ -147,9 +175,15 @@ class LoudnessTimevariant(_Loudness, HasPrivateTraits):
     def _source_changed(self, event):
         """
         Observer method that is called whenever the `source` attribute changes.
+        Fetches time data via result() in blocks of size `_block_size`.
         """
-        for res in self.source.result(self.numsamples):
-            self._time_data = res
+        self._time_data = np.empty((self.numsamples, self.numchannels))
+        i = 0
+
+        for res in self.source.result(self._block_size):
+            n_samples = res.shape[0]
+            self._time_data[i : i + n_samples] = res
+            i += n_samples
 
         self._calculate_loudness()
 
@@ -160,29 +194,21 @@ class LoudnessTimevariant(_Loudness, HasPrivateTraits):
         print("Calculating timevariant loudness... depending on the file size, " 
               "this might take a while")
         
-        # resampling necessary for mosqito tv to work with fs > 48 kHz
+        # resample to 48 kHz
         if self.sample_freq != 48000:
-            
-            print(len(self._time_data))
-
-            self._time_data = \
-                resample(self._time_data[:], 
-                         int(48000 * self.numsamples / self.sample_freq))
-            self.sample_freq = 48000
-            self.numsamples= int(48000 * self.numsamples / self.sample_freq)
+            self._resample_to_48kHz()
 
         # get ntime, code from mosqito
         dec_factor = int(self.sample_freq / 2000)
         n_time = int(len(self._time_data[:,0][::dec_factor]) / 4)
-
-        print(len(self._time_data), self.sample_freq)
 
         self.overall_loudness = np.zeros((self.numchannels, n_time))
         self.specific_loudness = np.zeros((self.numchannels, 240, n_time)) # restructure plot code to bark x channels x time as in stationary loudness?
 
         for i in range(self.numchannels):
             overall_loudness, specific_loudness, self.bark_axis, self.time_axis\
-                = loudness_zwtv(self._time_data[:,i], self.sample_freq)
+                = loudness_zwtv(self._time_data[:,i], self.sample_freq,
+                                field_type=self.field_type)
 
             self.overall_loudness[i,:] = overall_loudness
             self.specific_loudness[i, :, :] = specific_loudness
