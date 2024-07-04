@@ -203,7 +203,7 @@ class LoudnessTimevariant(_Loudness):
         n_time = int(len(self._time_data[:,0][::dec_factor]) / 4)
 
         self.overall_loudness = np.zeros((self.numchannels, n_time))
-        self.specific_loudness = np.zeros((self.numchannels, 240, n_time)) # restructure plot code to bark x channels x time as in stationary loudness?
+        self.specific_loudness = np.zeros((240, self.numchannels, n_time))
 
         for i in range(self.numchannels):
             overall_loudness, specific_loudness, self.bark_axis, self.time_axis\
@@ -211,5 +211,5 @@ class LoudnessTimevariant(_Loudness):
                                 field_type=self.field_type)
 
             self.overall_loudness[i,:] = overall_loudness
-            self.specific_loudness[i, :, :] = specific_loudness
+            self.specific_loudness[:, i, :] = specific_loudness
     
