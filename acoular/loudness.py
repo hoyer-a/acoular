@@ -245,11 +245,12 @@ class AnimatedPlot(LoudnessMicrophonePlot):
         Create interactive plot with animation.
         """
         # Set up figure with three subplots
-        self.fig = plt.figure(figsize=(15, 10), layout="constrained")
-        spec = self.fig.add_gridspec(2, 2)
-        self.ax = self.fig.add_subplot(spec[0, :])
+        self.fig = plt.figure(figsize=(20, 12), layout="constrained")
+        spec = self.fig.add_gridspec(2, 3)
+        self.ax = self.fig.add_subplot(spec[0, :2])
         self.ax2 = self.fig.add_subplot(spec[1, 0])
         self.ax3 = self.fig.add_subplot(spec[1, 1])
+        self.ax4 = self.fig.add_subplot(spec[0, 2])
 
         # Create first subplot displaying the microphone array
         self.ax.set_title('Click on point to plot specific loudness')
@@ -310,6 +311,23 @@ class AnimatedPlot(LoudnessMicrophonePlot):
         self.current_animation = FuncAnimation(self.fig, update, frames=self.time_steps, interval=200, blit=True)
 
         self.fig.canvas.draw()
+
+    def plot_spectrogram(self, dataind):
+        """
+        Method to plot the spectrogram of the selected microphone.
+        """
+        # Create the fourth subplot displaying the spectrogram
+        self.ax4.clear()
+        self.ax4.set_title('Spectrogram')
+        self.ax4.set_xlabel('Time [s]')
+        self.ax4.set_ylabel('Frequency [Hz]')
+
+        # Generate the spectrogram
+        f, t, Sxx = spectrogram(self.N[dataind, :], self.loudness_instance.fs)
+        self.ax4.pcolormesh(t, f, 10 * np.log10(Sxx), shading='gouraud')
+        self.ax4.set_ylim([0, self.loudness_instance.fs / 2])
+        self.fig.canvas.draw()
+
 
     def update_plot(self, dataind):
         """
