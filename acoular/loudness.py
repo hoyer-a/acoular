@@ -88,7 +88,7 @@ class LoudnessStationary(_Loudness):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    @observe('source', post_init=True)
+    @observe('source', post_init=False)
     def _source_changed(self, event):
         """
         Observer method that is called whenever the `source` attribute changes.
@@ -171,7 +171,7 @@ class LoudnessTimevariant(_Loudness):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    @observe('source', post_init=True)
+    @observe('source', post_init=False)
     def _source_changed(self, event):
         """
         Observer method that is called whenever the `source` attribute changes.
