@@ -93,28 +93,6 @@ class LoudnessStationary(_Loudness):
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
                                 "(shape: `N_bark x N_channels`).")
 
-    # CArray representing the position of microphones in 3D space.
-    mpos = CArray(desc="position of microphone "
-                  "(`x_position x y_position x z_position`)")
-    
-    # Instance of Matplotlib figure to hold the entire plot.
-    fig = Instance(mpl_figure.Figure)
-
-    # Instance of Matplotlib axes for the main scatter plot (microphone array).
-    ax = Instance(mpl_axes.Axes)
-
-    # Instance of Matplotlib axes for the plot displaying specific loudness.
-    ax2 = Instance(mpl_axes.Axes)
-
-    # Instance of Matplotlib PathCollection representing the scatter plot points (microphone markers).
-    line = Instance(mpl_collections.PathCollection)
-
-    # Instance of Matplotlib Text object used to display information or annotations on plots.
-    textbox = Instance(plt.Text)
-
-    # Instance of PointBrowser (custom class) to handle interactive selection of microphone points.
-    browser = Instance(object)
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -177,11 +155,9 @@ class LoudnessStationary(_Loudness):
         m : object
             class:`~acoular.microphones.MicGeom` object that provides the microphone locations.
         """
-        # Assign microphone positions from the input parameter
-        self.mpos = m.mpos
 
         # Call Plotclass for Stationary Loudness 
-        plt_st = _PlotclassST(self.overall_loudness, self.specific_loudness, self.bark_axis, self.mpos)
+        plt_st = _PlotclassST(self.overall_loudness, self.specific_loudness, self.bark_axis, m)
         plt_st.plot()
 
 
@@ -212,34 +188,6 @@ class LoudnessTimevariant(_Loudness):
 
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
                                "(shape: `N_bark x N_channels x N_times`).")
-    
-    # CArray: Array to store the position of microphones in 3D space.
-    mpos = CArray(desc="position of microphone "
-                  "(`x_position x y_position x z_position`)")
-
-    # Instance of Matplotlib Figure to contain the entire plot.
-    fig = Instance(mpl_figure.Figure)
-
-    # Instance of Matplotlib Axes for the main scatter plot (microphone array).
-    ax = Instance(mpl_axes.Axes)
-
-    # Instance of Matplotlib PathCollection representing scatter plot points (microphone markers).
-    line = Instance(mpl_collections.PathCollection)
-
-    # Instance of Matplotlib Axes for plotting overall loudness over time.
-    ax2 = Instance(mpl_axes.Axes)
-
-    # Instance of Matplotlib Axes for plotting specific loudness spectrogram.
-    ax3 = Instance(mpl_axes.Axes)
-
-    # Instance of Matplotlib Text object used for annotations or displaying information on plots.
-    textbox = Instance(plt.Text)
-
-    # Instance of a colorbar associated with specific loudness spectrogram plot.
-    colorbar = Instance(object, allow_none=True)
-
-    # Instance of a custom class or object (e.g., PointBrowser) for interactive point selection.
-    browser = Instance(object)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -282,6 +230,12 @@ class LoudnessTimevariant(_Loudness):
             overall_loudness, specific_loudness, self.bark_axis, self.time_axis\
                 = loudness_zwtv(self._time_data[:,i], self.sample_freq,
                                 field_type=self.field_type)
+            
+            if overall_loudness.shape[0] != n_time:
+                            print(f"Adjusting n_time from {n_time} to {overall_loudness.shape[0]}")
+                            n_time = overall_loudness.shape[0]
+                            self.overall_loudness = np.zeros((self.numchannels, n_time))
+                            self.specific_loudness = np.zeros((240, self.numchannels, n_time))
 
             self.overall_loudness[i,:] = overall_loudness
             self.specific_loudness[:, i, :] = specific_loudness
@@ -295,11 +249,8 @@ class LoudnessTimevariant(_Loudness):
         m : object
             class:`~acoular.microphones.MicGeom` object that provides the microphone locations.
         """
-        # Assign microphone positions from the input parameter
-        self.mpos = m.mpos
-
         # Call Plotclass for Stationary Loudness 
-        plt_tv = _PlotclassTV(self.overall_loudness, self.specific_loudness, self.bark_axis, self.time_axis, self.mpos)
+        plt_tv = _PlotclassTV(self.overall_loudness, self.specific_loudness, self.bark_axis, self.time_axis, m)
         plt_tv.plot()
  
 class _PlotclassST:
@@ -307,11 +258,11 @@ class _PlotclassST:
     Class for plotting static loudness data.
     """
 
-    def __init__(self, overall_loudness, specific_loudness, bark_axis, mpos):
+    def __init__(self, overall_loudness, specific_loudness, bark_axis, m):
         self.overall_loudness = overall_loudness
         self.specific_loudness = specific_loudness
         self.bark_axis = bark_axis
-        self.mpos = mpos
+        self.mpos = m.mpos
 
     def plot(self):
         """
@@ -378,12 +329,13 @@ class _PlotclassTV():
     Class for plotting animated loudness data from LoudnessTimevariant instances.
     """
 
-    def __init__(self, overall_loudness, specific_loudness, bark_axis, time_axis, mpos):
+    def __init__(self, overall_loudness, specific_loudness, bark_axis, time_axis, m):
         self.overall_loudness = overall_loudness
         self.specific_loudness = specific_loudness
         self.bark_axis = bark_axis 
         self.time_axis = time_axis
-        self.mpos = mpos 
+        self.mpos = m.mpos 
+        self.colorbar = None 
 
     def plot(self):
         """
@@ -440,6 +392,12 @@ class _PlotclassTV():
         self.ax3.set_title(f'Specific Loudness Spectrogram (Channel {dataind})')
         self.ax3.set_xlabel('Time [s]')
         self.ax3.set_ylabel('Bark')
+        
+        # Set the y-axis ticks and labels to show values from 0 to 25 in 5-step increments
+        bark_ticks = np.arange(0, 26, 5)
+        bark_tick_labels = [str(tick) for tick in bark_ticks]
+        self.ax3.set_yticks(bark_ticks * len(self.bark_axis) // 25)
+        self.ax3.set_yticklabels(bark_tick_labels)
 
         # Manage the color bar associated with the spectrogram plot
         if self.colorbar:
@@ -449,18 +407,6 @@ class _PlotclassTV():
 
         # Redraw the figure canvas to reflect updates
         self.fig.canvas.draw()  
-
-
-
-
-
-
-
-
-
-
-
-
 
 class PointBrowser:
     """
