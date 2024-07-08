@@ -1,11 +1,18 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.figure as mpl_figure
+import matplotlib.axes as mpl_axes
+import matplotlib.collections as mpl_collections
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.backends.backend_webagg_core import NavigationToolbar2WebAgg
 import warnings
-from scipy.signal import resample
+from scipy.signal import (
+    resample,
+)
 from traits.api import (
     CArray,
     Delegate,
     Float,
-    HasPrivateTraits,
     Int,
     String,
     Trait,
@@ -79,13 +86,14 @@ class LoudnessStationary(_Loudness):
       Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
     - Mosqito [...] tbd
     """
-
+    # Union of Float or CArray representing overall loudness for each channel.
     overall_loudness = Union(Float(), CArray(),
-                             desc="overall loudness (shape: `N_channels`)")
+                            desc="overall loudness (shape: `N_channels`)")
 
+    # CArray representing specific loudness in sones per bark per channel.
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
-                               "(shape: `N_bark x N_channels`).")
-    
+                                "(shape: `N_bark x N_channels`).")
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         print("init called")
@@ -141,7 +149,21 @@ class LoudnessStationary(_Loudness):
             self.overall_loudness, self.specific_loudness, self.bark_axis = \
                 loudness_zwst(self._time_data[:], self.sample_freq, 
                               field_type=self.field_type)[0:3]
-            
+
+    def show(self, m):
+        """
+        Create interactive plot to display the overall loudness and specific loudness for each microphone.
+
+        Parameters
+        ----------
+        m : object
+            class:`~acoular.microphones.MicGeom` object that provides the microphone locations.
+        """
+
+        # Call Plotclass for Stationary Loudness 
+        plt_st = _PlotclassST(self.overall_loudness, self.specific_loudness, self.bark_axis, m)
+        plt_st.plot()
+
 
 class LoudnessTimevariant(_Loudness):
     """
@@ -217,7 +239,263 @@ class LoudnessTimevariant(_Loudness):
             overall_loudness, specific_loudness, self.bark_axis, self.time_axis\
                 = loudness_zwtv(self._time_data[:,i], self.sample_freq,
                                 field_type=self.field_type)
-
+            
             self.overall_loudness[i,:] = overall_loudness
             self.specific_loudness[:, i, :] = specific_loudness
-    
+    def show(self, m):
+        """
+        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.
+
+        Parameters
+        ----------
+        m : object
+            class:`~acoular.microphones.MicGeom` object that provides the microphone locations.
+        """
+        # Call Plotclass for Stationary Loudness 
+        plt_tv = _PlotclassTV(self.overall_loudness, self.specific_loudness, self.bark_axis, self.time_axis, m)
+        plt_tv.plot()
+ 
+class _PlotclassST:
+    """
+    Class for plotting static loudness data.
+    """
+
+    def __init__(self, overall_loudness, specific_loudness, bark_axis, m):
+        self.overall_loudness = overall_loudness
+        self.specific_loudness = specific_loudness
+        self.bark_axis = bark_axis
+        self.mpos = m.mpos
+
+    def plot(self):
+        """
+        Create interactive plot to display the overall loudness and specific loudness for each microphone.
+        """
+
+        # Create figure with two subplots
+        self.fig, (self.ax, self.ax2) = plt.subplots(2, 1)
+
+        # Configure main scatter plot (microphone array)
+        self.ax.set_title('Click on point to plot specific loudness')
+        self.ax.axis('equal')
+        self.ax.set_xlabel('x-Position [m]')
+        self.ax.set_ylabel('y-Position [m]')
+        self.ax.grid(True)
+
+        # Scatter plot of microphone positions with overall loudness as color
+        scatter = self.ax.scatter(self.mpos[0, :], self.mpos[1, :], c=self.overall_loudness, cmap='viridis', picker=True, s=50)
+        self.line = scatter
+        cbar = self.fig.colorbar(scatter, ax=self.ax)
+        cbar.set_label('Overall Loudness (Sone)')
+
+        # Initialize PointBrowser for interactive point selection
+        self.browser = PointBrowser(self)
+        self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
+        self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
+
+        plt.show()
+
+    def _update_plot(self, dataind):
+        """
+        Generates the specific loudness plot when a point is selected.
+
+        Parameters
+        ----------
+        dataind : int
+            Index of the selected microphone point.
+
+        """
+        # Clear the subplot for specific loudness
+        self.ax2.clear()
+
+        # Plot specific loudness against Bark scale
+        self.ax2.plot(self.bark_axis, self.specific_loudness[:, dataind])
+        self.ax2.set_ylim(0, np.max(self.specific_loudness) + 1)
+        self.ax2.set_title('Specific Loudness')
+        self.ax2.set_xlabel('Bark')
+        self.ax2.set_ylabel('Sone')
+        self.ax2.grid(True)
+
+        # Display overall loudness value as text annotation
+        point_overall_loudness = self.overall_loudness[dataind]
+        self.textbox = self.ax2.text(0.05, 0.95, '', transform=self.ax2.transAxes,
+                                     verticalalignment='top', horizontalalignment='left',
+                                     bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='white'))
+        self.textbox.set_text(f'Overall Loudness: {point_overall_loudness:.2f} Sone')
+
+        # Redraw the figure canvas to reflect updates
+        self.fig.canvas.draw()
+
+
+class _PlotclassTV():
+    """
+    Class for plotting animated loudness data from LoudnessTimevariant instances.
+    """
+
+    def __init__(self, overall_loudness, specific_loudness, bark_axis, time_axis, m):
+        self.overall_loudness = overall_loudness
+        self.specific_loudness = specific_loudness
+        self.bark_axis = bark_axis 
+        self.time_axis = time_axis
+        self.mpos = m.mpos 
+        self.colorbar = None 
+
+    def plot(self):
+        """
+        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.
+        """
+        # Set up the main figure with a constrained layout and specific size
+        self.fig = plt.figure(figsize=(20, 12), constrained_layout=True)
+        spec = self.fig.add_gridspec(2, 3)  
+        self.ax = self.fig.add_subplot(spec[0, 0])  
+        self.ax2 = self.fig.add_subplot(spec[0, 1])  
+        self.ax3 = self.fig.add_subplot(spec[1, :2])  
+
+        # Configure main scatter plot (microphone array)
+        self.ax.set_title('Click on point to plot specific loudness')
+        self.ax.axis('equal') 
+        self.ax.set_xlabel('x-Position [m]')
+        self.ax.set_ylabel('y-Position [m]')
+        self.ax.grid(True)  
+
+        # Scatter plot of microphone positions with averaged overall loudness as color
+        scatter = self.ax.scatter(self.mpos[0, :], self.mpos[1, :], c=self.overall_loudness.mean(axis=1), cmap='viridis', picker=True, s=50)
+        self.line = scatter  
+        cbar = self.fig.colorbar(scatter, ax=self.ax)  
+        cbar.set_label('Overall Loudness (Sone)')  
+
+        # Initialize PointBrowser for interactive point selection
+        self.browser = PointBrowser(self)  
+        self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)  
+        self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)  
+
+        plt.show()  
+
+    def _update_plot(self, dataind):
+        """
+        Updates the overall loudness over time plot and the specific loudness spectogram when a point is selected.
+
+        Parameters
+        ----------
+        dataind : int
+            Index of the selected microphone point.
+
+        """
+        # Clear the subplot for overall loudness over time and update with new data
+        self.ax2.clear()
+        self.ax2.plot(self.time_axis, self.overall_loudness[dataind, :])
+        self.ax2.set_title('Overall Loudness Over Time')
+        self.ax2.set_xlabel('Time [s]')
+        self.ax2.set_ylabel('Overall Loudness [Sone]')
+        self.ax2.grid(True)  # Enable grid lines
+
+        # Clear the subplot for specific loudness spectrogram and update with new data
+        self.ax3.clear()
+        cax = self.ax3.imshow(self.specific_loudness[:, dataind, :], aspect='auto', cmap='viridis', origin='lower')
+        self.ax3.set_title(f'Specific Loudness Spectrogram (Channel {dataind})')
+        self.ax3.set_xlabel('Time [s]')
+        self.ax3.set_ylabel('Bark')
+        
+        # Set the y-axis ticks and labels to show values from 0 to 25 in 5-step increments
+        bark_ticks = np.arange(0, 26, 5)
+        bark_tick_labels = [str(tick) for tick in bark_ticks]
+        self.ax3.set_yticks(bark_ticks * len(self.bark_axis) // 25)
+        self.ax3.set_yticklabels(bark_tick_labels)
+
+        # Manage the color bar associated with the spectrogram plot
+        if self.colorbar:
+            self.colorbar.update_normal(cax)  
+        else:
+            self.colorbar = self.fig.colorbar(cax, ax=self.ax3, label='Loudness (Sone/Bark)')  
+
+        # Redraw the figure canvas to reflect updates
+        self.fig.canvas.draw()  
+
+class PointBrowser:
+    """
+    Interactive class for selecting and highlighting points on a plot.
+    Click on a point to select and highlight it -- the data that
+    generated the point will be shown in the lower Axes. Use the 'n'
+    and 'p' keys to browse through the next and previous points.
+    """
+
+    def __init__(self, plot_instance):
+        """
+        Initialize the PointBrowser with the given plot instance.
+
+        Parameters
+        ----------
+        plot_instance : object
+            Instance of the plot that contains the data and the figure.
+        """
+        self.plot_instance = plot_instance
+        self.lastind = 0
+        
+        # Create a text label in the plot to show the selected point index.
+        self.text = self.plot_instance.ax.text(0.05, 0.95, 'selected: none',
+                                               transform=self.plot_instance.ax.transAxes, va='top')
+        
+        # Create a plot marker to highlight the selected point, initially invisible.
+        self.selected, = self.plot_instance.ax.plot([self.plot_instance.mpos[0, 0]],
+                                                    [self.plot_instance.mpos[1, 0]], 'o',
+                                                    ms=12, alpha=0.4, color='yellow', visible=False)
+
+    def on_press(self, event):
+        """
+        Handle key press events to navigate through points.
+
+        Parameters
+        ----------
+        event : matplotlib.backend_bases.KeyEvent
+            The key press event containing information about which key was pressed.
+        """
+        # Only handle 'n' for next and 'p' for previous keys.
+        if self.lastind is None or event.key not in ('n', 'p'):
+            return
+        
+        # Update the index based on key press and call update method.
+        self.lastind = np.clip(self.lastind + (1 if event.key == 'n' else -1), 0, len(self.plot_instance.mpos[0]) - 1)
+        self.update()
+
+    def on_pick(self, event):
+        """
+        Handle pick events to select points on the plot.
+
+        Parameters
+        ----------
+        event : matplotlib.backend_bases.PickEvent
+            The pick event containing information about the picked object.
+        """
+        # Check if the picked object is the scatter plot points.
+        if event.artist != self.plot_instance.line:
+            return True
+
+        # Check if any indices were picked.
+        if not len(event.ind):
+            return True
+
+        # Determine the closest picked point to the mouse click position.
+        x, y = event.mouseevent.xdata, event.mouseevent.ydata
+        distances = np.hypot(x - self.plot_instance.mpos[0, event.ind], y - self.plot_instance.mpos[1, event.ind])
+        self.lastind = event.ind[distances.argmin()]
+        self.update()
+
+    def update(self):
+        """
+        Update the plot to reflect the newly selected point.
+        """
+        # Check if a valid index is selected.
+        if self.lastind is None:
+            return
+
+        # Update the plots with data from the selected point.
+        self.plot_instance._update_plot(self.lastind)
+        
+        # Make the selected point marker visible and update its position.
+        self.selected.set_visible(True)
+        self.selected.set_data([self.plot_instance.mpos[0, self.lastind]], [self.plot_instance.mpos[1, self.lastind]])
+        
+        # Update the text label to show the selected point index.
+        self.text.set_text(f'selected: {self.lastind}')
+        
+        # Redraw the figure canvas to reflect updates.
+        self.plot_instance.fig.canvas.draw()
