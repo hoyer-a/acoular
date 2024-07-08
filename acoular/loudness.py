@@ -4,6 +4,7 @@ import matplotlib.figure as mpl_figure
 import matplotlib.axes as mpl_axes
 import matplotlib.collections as mpl_collections
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.backends.backend_webagg_core import NavigationToolbar2WebAgg
 import warnings
 from scipy.signal import (
     resample,
@@ -231,12 +232,6 @@ class LoudnessTimevariant(_Loudness):
                 = loudness_zwtv(self._time_data[:,i], self.sample_freq,
                                 field_type=self.field_type)
             
-            if overall_loudness.shape[0] != n_time:
-                            print(f"Adjusting n_time from {n_time} to {overall_loudness.shape[0]}")
-                            n_time = overall_loudness.shape[0]
-                            self.overall_loudness = np.zeros((self.numchannels, n_time))
-                            self.specific_loudness = np.zeros((240, self.numchannels, n_time))
-
             self.overall_loudness[i,:] = overall_loudness
             self.specific_loudness[:, i, :] = specific_loudness
 
