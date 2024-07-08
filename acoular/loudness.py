@@ -31,14 +31,11 @@ class _Loudness(TimeInOut):
     Parent class for stationary and timevariant loudness classes
     """
     source = Trait(SamplesGenerator)
-    
-    #: Sampling frequency of output signal, as given by :attr:`source`.
-    sample_freq = PrototypedFrom('source', 'sample_freq')
 
     #: Number of time data channels
     numchannels = PrototypedFrom('source', 'numchannels')
 
-    numsamples = PrototypedFrom('source', 'numsamples')
+    sample_freq = Float(48000, desc="Sampling frequency of the calculation")
 
     bark_axis = CArray(desc="Bark axis in 0.1 bark steps (size = 240)")
 
@@ -46,20 +43,24 @@ class _Loudness(TimeInOut):
 
     _time_data = CArray(desc="Time data for loudness calculation")
 
+    _n_samples = Int(source.numsamples,
+                     desc="Number of samples for loudness calculation")
+
     start_sample = Int(0, desc="First sample for calculation")
 
-    end_sample = Int(numsamples, desc="Last sample for calculation")
+    end_sample = Int(source.numsamples, desc="Last sample for calculation")
 
-    _block_size = Int(4096, desc="Block size for fetching time data")
+    block_size = Int(4096, desc="Block size for fetching time data")
 
     field_type = String("free", desc="Field type")
 
     def _resample_to_48kHz(self):
         self._time_data = \
             resample(self._time_data[:], 
-                    int(48000 * self.numsamples / self.sample_freq))
-        self.sample_freq = 48000
-        self.numsamples= int(48000 * self.numsamples / self.sample_freq)
+                    int(48000 * self.source.numsamples / 
+                        self.source.sample_freq))
+        self._n_samples = int(48000 * self.source.numsamples / 
+                              self.source.sample_freq)
         print("signal resampled to 48 kHz")
 
 class LoudnessStationary(_Loudness):
@@ -92,20 +93,26 @@ class LoudnessStationary(_Loudness):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        print("init called")
 
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
     def _source_changed(self):
         """
         Observer method that is called whenever the `source` attribute changes.
-        Fetches time data via result() in blocks of size `_block_size`.
+        Fetches time data via result() in blocks of size `block_size`.
         """
-        print("source changed called")
-        self._time_data = np.empty((self.numsamples, self.numchannels))
+        print("source changed")
+
+        if self.source.numsamples < self.block_size:
+            raise ValueError(f"Blocksize ({self.block_size}) must be smaller" 
+                             " than the number of samples in the source "
+                             f"({self.source.numsamples}).")
+
+        self._time_data = np.empty((self.source.numsamples, 
+                                    self.source.numchannels))
         i = 0
 
-        for res in self.source.result(self._block_size):
+        for res in self.source.result(self.block_size):
             n_samples = res.shape[0]
             self._time_data[i : i + n_samples] = res
             i += n_samples
@@ -119,14 +126,14 @@ class LoudnessStationary(_Loudness):
         print("Calculating stationary loudness... depending on the file size, " 
               "this might take a while")
         
-        if self.sample_freq != 48000:
+        if self.source.sample_freq != 48000:
             self._resample_to_48kHz()
 
         # check input, large files will be processed channel wise
-        if (self.numsamples > self.sample_freq * 2.5 * 60 \
+        if (self._n_samples > self.sample_freq * 2.5 * 60 \
             and self.numchannels > 96) \
-                or (self.numsamples > self.sample_freq * 14 * 60 \
-                    and self.numchannels > 16):
+                or (self._n_samples > self.sample_freq * 14 * 60 \
+                    and self._n_samples > 16):
 
             warnings.warn("File to big to be processed at once. File will be"
                           " processed channel wise", RuntimeWarning)
@@ -191,21 +198,26 @@ class LoudnessTimevariant(_Loudness):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        print("init called")
 
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
     def _source_changed(self):
         """
         Observer method that is called whenever the `source` attribute changes.
-        Fetches time data via result() in blocks of size `_block_size`.
+        Fetches time data via result() in blocks of size `block_size`.
         """
-        print("source changed called")
 
-        self._time_data = np.empty((self.numsamples, self.numchannels))
+        if self.source.numsamples < self.block_size:
+            raise ValueError(f"Blocksize ({self.block_size}) must be smaller" 
+                             " than the number of samples in the source "
+                             f"({self.source.numsamples}).")
+
+        print("source changed")
+
+        self._time_data = np.empty((self.source.numsamples, self.numchannels))
         i = 0
 
-        for res in self.source.result(self._block_size):
+        for res in self.source.result(self.block_size):
             n_samples = res.shape[0]
             self._time_data[i : i + n_samples] = res
             i += n_samples
@@ -220,12 +232,14 @@ class LoudnessTimevariant(_Loudness):
               "this might take a while")
         
         # resample to 48 kHz
-        if self.sample_freq != 48000:
+        if self.source.sample_freq != 48000:
             self._resample_to_48kHz()
 
         # get ntime, code from mosqito
         dec_factor = int(self.sample_freq / 2000)
         n_time = int(len(self._time_data[:,0][::dec_factor]) / 4)
+
+        print(len(self._time_data), self._n_samples)
 
         self.overall_loudness = np.zeros((self.numchannels, n_time))
         self.specific_loudness = np.zeros((240, self.numchannels, n_time))
