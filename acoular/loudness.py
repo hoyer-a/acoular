@@ -11,6 +11,7 @@ from traits.api import (
     Trait,
     Union,
     observe,
+    PrototypedFrom,
 )
 from mosqito import (
     loudness_zwtv,
@@ -29,12 +30,12 @@ class _Loudness(TimeInOut):
     source = Trait(SamplesGenerator)
     
     #: Sampling frequency of output signal, as given by :attr:`source`.
-    sample_freq = Delegate('source')
+    sample_freq = PrototypedFrom('source', 'sample_freq')
 
     #: Number of time data channels
-    numchannels = Delegate('source')
+    numchannels = PrototypedFrom('source', 'numchannels')
 
-    numsamples = Delegate('source')
+    numsamples = PrototypedFrom('source', 'numsamples')
 
     bark_axis = CArray(desc="Bark axis in 0.1 bark steps (size = 240)")
 
@@ -87,13 +88,16 @@ class LoudnessStationary(_Loudness):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        print("init called")
 
-    @observe('source', post_init=False)
-    def _source_changed(self, event):
+    # observe decorator introduces errors and misbehavior e.g. double calculation
+    #@observe('source', post_init=False)
+    def _source_changed(self):
         """
         Observer method that is called whenever the `source` attribute changes.
         Fetches time data via result() in blocks of size `_block_size`.
         """
+        print("source changed called")
         self._time_data = np.empty((self.numsamples, self.numchannels))
         i = 0
 
@@ -142,7 +146,7 @@ class LoudnessStationary(_Loudness):
 class LoudnessTimevariant(_Loudness):
     """
     Calculates the timevariant loudness according to ISO 532-1 (Zwicker) 
-    from a given source. Calculates loudness for timesteps of 64 samples.
+    from a given source.
 
     Uses third party code from `mosqito 
     <https://mosqito.readthedocs.io/en/latest/index.html>`__.
@@ -162,21 +166,25 @@ class LoudnessTimevariant(_Loudness):
     """
     overall_loudness = Union(CArray(),
                              desc="overall loudness (shape: `N_channels x" 
-                             " N_times)")
+                             " N_times)`")
 
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
-                               "(shape: `N_channels x N_bark x N_times`).")
+                               "(shape: `N_bark x N_channels x N_times`).")
 
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        print("init called")
 
-    @observe('source', post_init=False)
-    def _source_changed(self, event):
+    # observe decorator introduces errors and misbehavior e.g. double calculation
+    #@observe('source', post_init=False)
+    def _source_changed(self):
         """
         Observer method that is called whenever the `source` attribute changes.
         Fetches time data via result() in blocks of size `_block_size`.
         """
+        print("source changed called")
+
         self._time_data = np.empty((self.numsamples, self.numchannels))
         i = 0
 
