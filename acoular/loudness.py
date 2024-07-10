@@ -1,10 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.figure as mpl_figure
-import matplotlib.axes as mpl_axes
-import matplotlib.collections as mpl_collections
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.backends.backend_webagg_core import NavigationToolbar2WebAgg
 import warnings
 from scipy.signal import (
     resample,
@@ -29,6 +24,7 @@ from acoular import (
     SamplesGenerator,
 )
 import math
+
 
 class _Loudness(TimeInOut):
     """
@@ -285,6 +281,7 @@ class _PlotclassST:
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
 
+        # Show plot with an interactive backend
         plt.show()
 
     def _update_plot(self, dataind):
@@ -319,7 +316,7 @@ class _PlotclassST:
         self.fig.canvas.draw()
 
 
-class _PlotclassTV():
+class _PlotclassTV:
     """
     Class for plotting animated loudness data from LoudnessTimevariant instances.
     """
@@ -361,6 +358,7 @@ class _PlotclassTV():
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)  
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)  
 
+        # Show plot with an interactive backend
         plt.show()  
 
     def _update_plot(self, dataind):
