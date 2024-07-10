@@ -1,10 +1,14 @@
+"""Implements stationary and timevaraint loudness calculation.
+
+.. autosummary::
+    :toctree: generated/
+
+    LoudnessStationary
+    LoudnessTimevariant
+
+"""
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.figure as mpl_figure
-import matplotlib.axes as mpl_axes
-import matplotlib.collections as mpl_collections
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.backends.backend_webagg_core import NavigationToolbar2WebAgg
 import warnings
 from scipy.signal import (
     resample,
@@ -30,15 +34,18 @@ from acoular import (
 )
 import math
 
+
 class _Loudness(TimeInOut):
     """
     Parent class for stationary and timevariant loudness classes
     """
+    #: Data source; :class:`~acoular.sources.SamplesGenerator` or derived object.
     source = Trait(SamplesGenerator)
 
-    #: Number of time data channels
+    #: Number of channels in output, as given by :attr:`source`.
     numchannels = PrototypedFrom('source', 'numchannels')
 
+    #: Sampling frequency of output signal, as given by :attr:`source`.
     sample_freq = Float(48000, desc="Sampling frequency of the calculation")
 
     bark_axis = CArray(desc="Bark axis in 0.1 bark steps (size = 240)")
@@ -85,7 +92,8 @@ class LoudnessStationary(_Loudness):
     - Acoustics –
       Methods for calculating loudness –
       Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
-    - Mosqito [...] tbd
+    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
+      https://doi.org/10.5281/zenodo.11026796
     """
     # Union of Float or CArray representing overall loudness for each channel.
     overall_loudness = Union(Float(), CArray(),
@@ -159,12 +167,13 @@ class LoudnessStationary(_Loudness):
 
     def show(self, m):
         """
-        Create interactive plot to display the overall loudness and specific loudness for each microphone.
+        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.\
+        Be aware: If the plot functionality should be used, the microphone positions must be initiated with :class:`~acoular.microphones.MicGeom`
 
         Parameters
         ----------
-        m : object
-            class:`~acoular.microphones.MicGeom` object that provides the microphone locations.
+        m : Instance Variable
+            :class:`~acoular.microphones.MicGeom` Instance Variable that provides the microphone locations.
         """
 
         # Call Plotclass for Stationary Loudness 
@@ -195,12 +204,11 @@ class LoudnessTimevariant(_Loudness):
     """
     overall_loudness = Union(CArray(),
                              desc="overall loudness (shape: `N_channels x" 
-                             " N_times)`")
+                             " N_times`)")
 
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
                                "(shape: `N_bark x N_channels x N_times`).")
 
-    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -259,14 +267,15 @@ class LoudnessTimevariant(_Loudness):
 
     def show(self, m):
         """
-        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.
-
+        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.\
+        Be aware: If the plot functionality should be used, the microphone positions must be initiated with :class:`~acoular.microphones.MicGeom`
+        
         Parameters
         ----------
-        m : object
-            class:`~acoular.microphones.MicGeom` object that provides the microphone locations.
+        m : Instance Variable
+            :class:`~acoular.microphones.MicGeom` Instance Variable that provides the microphone locations.
         """
-        # Call Plotclass for Stationary Loudness 
+        # Call Plotclass for timevariant Loudness 
         plt_tv = _PlotclassTV(self.overall_loudness, self.specific_loudness, self.bark_axis, self.time_axis, m)
         plt_tv.plot()
  
@@ -303,10 +312,11 @@ class _PlotclassST:
         cbar.set_label('Overall Loudness (Sone)')
 
         # Initialize PointBrowser for interactive point selection
-        self.browser = PointBrowser(self)
+        self.browser = _PointBrowser(self)
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
 
+        # Show plot with an interactive backend
         plt.show()
 
     def _update_plot(self, dataind):
@@ -341,7 +351,7 @@ class _PlotclassST:
         self.fig.canvas.draw()
 
 
-class _PlotclassTV():
+class _PlotclassTV:
     """
     Class for plotting animated loudness data from LoudnessTimevariant instances.
     """
@@ -379,7 +389,7 @@ class _PlotclassTV():
         cbar.set_label('Overall Loudness (Sone)')  
 
         # Initialize PointBrowser for interactive point selection
-        self.browser = PointBrowser(self)  
+        self.browser = _PointBrowser(self)  
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)  
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)  
 
@@ -425,7 +435,7 @@ class _PlotclassTV():
         # Redraw the figure canvas to reflect updates
         self.fig.canvas.draw()  
 
-class PointBrowser:
+class _PointBrowser:
     """
     Interactive class for selecting and highlighting points on a plot.
     Click on a point to select and highlight it -- the data that

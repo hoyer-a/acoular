@@ -18,6 +18,7 @@ The following modules are part of Acoular:
     fbeamform
     grids
     microphones
+    loudness
     sdinput
     signals
     sources
