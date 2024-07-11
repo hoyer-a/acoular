@@ -95,9 +95,6 @@ class LoudnessStationary(_Loudness):
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
                                 "(shape: `N_bark x N_channels`).")
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
     def _source_changed(self):
@@ -200,10 +197,6 @@ class LoudnessTimevariant(_Loudness):
     specific_loudness = CArray(desc="specific loudness sones/bark per channel "
                                "(shape: `N_bark x N_channels x N_times`).")
 
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
     def _source_changed(self):
@@ -243,9 +236,7 @@ class LoudnessTimevariant(_Loudness):
         # get ntime, code from mosqito
         dec_factor = int(self.sample_freq / 2000)
         n_time = int(len(self._time_data[:,0][::dec_factor]) / 4)
-
-        print(len(self._time_data), self._n_samples)
-
+        
         self.overall_loudness = np.zeros((self.numchannels, n_time))
         self.specific_loudness = np.zeros((240, self.numchannels, n_time))
 
