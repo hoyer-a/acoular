@@ -38,6 +38,14 @@ import math
 class _Loudness(TimeInOut):
     """
     Parent class for stationary and timevariant loudness classes
+
+    References
+    ==========
+    - Acoustics –
+      Methods for calculating loudness –
+      Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
+    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
+      https://doi.org/10.5281/zenodo.11026796
     """
     #: Data source; :class:`~acoular.sources.SamplesGenerator` or derived object.
     source = Trait(SamplesGenerator)
@@ -46,7 +54,8 @@ class _Loudness(TimeInOut):
     numchannels = PrototypedFrom('source', 'numchannels')
 
     #: Sampling frequency of output signal, as given by :attr:`source`.
-    sample_freq = Float(48000, desc="Sampling frequency of the calculation")
+    sample_freq = Float(48000, desc="Sampling frequency of the calculation,"
+                        "default is 48 kHz")
 
     bark_axis = CArray(desc="Bark axis in 0.1 bark steps (size = 240)")
 
@@ -61,9 +70,10 @@ class _Loudness(TimeInOut):
 
     end_sample = Int(source.numsamples, desc="Last sample for calculation")
 
-    block_size = Int(4096, desc="Block size for fetching time data")
+    block_size = Int(4096, desc="Block size for fetching time data, default is"
+                     "4096")
 
-    field_type = String("free", desc="Field type")
+    field_type = String("free", desc="Field type, default is 'free'")
 
     def _resample_to_48kHz(self):
         self._time_data = \
@@ -81,19 +91,6 @@ class LoudnessStationary(_Loudness):
 
     Uses third party code from `mosqito 
     <https://mosqito.readthedocs.io/en/latest/index.html>`__.
-
-    Parameters
-    ==========
-    source : TimeSamples
-        The input source as TimeSamples object.
-
-    References
-    ==========
-    - Acoustics –
-      Methods for calculating loudness –
-      Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
-    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
-      https://doi.org/10.5281/zenodo.11026796
     """
     # Union of Float or CArray representing overall loudness for each channel.
     overall_loudness = Union(Float(), CArray(),
@@ -106,11 +103,10 @@ class LoudnessStationary(_Loudness):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    # observe decorator introduces errors and misbehavior e.g. double calculation
+    # observe introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
     def _source_changed(self):
         """
-        Observer method that is called whenever the `source` attribute changes.
         Fetches time data via result() in blocks of size `block_size`.
         """
         print("source changed")
@@ -167,13 +163,14 @@ class LoudnessStationary(_Loudness):
 
     def show(self, m):
         """
-        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.\
+        Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone. \
         Be aware: If the plot functionality should be used, the microphone positions must be initiated with :class:`~acoular.microphones.MicGeom`
 
         Parameters
         ----------
         m : Instance Variable
-            :class:`~acoular.microphones.MicGeom` Instance Variable that provides the microphone locations.
+            :class:`~acoular.microphones.MicGeom` Instance Variable that 
+            provides the microphone locations.
         """
 
         # Call Plotclass for Stationary Loudness 
@@ -185,22 +182,6 @@ class LoudnessTimevariant(_Loudness):
     """
     Calculates the timevariant loudness according to ISO 532-1 (Zwicker) 
     from a given source.
-
-    Uses third party code from `mosqito 
-    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
-
-    Parameters
-    ==========
-    source : SamplesGenerator or derived object?
-        The input source as TimeSamples object.
-
-    References
-    ==========
-    - Acoustics –
-      Methods for calculating loudness –
-      Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
-    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
-      https://doi.org/10.5281/zenodo.11026796
     """
     overall_loudness = Union(CArray(),
                              desc="overall loudness (shape: `N_channels x" 
@@ -216,7 +197,6 @@ class LoudnessTimevariant(_Loudness):
     #@observe('source', post_init=False)
     def _source_changed(self):
         """
-        Observer method that is called whenever the `source` attribute changes.
         Fetches time data via result() in blocks of size `block_size`.
         """
 
