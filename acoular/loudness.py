@@ -37,7 +37,10 @@ import math
 
 class _Loudness(TimeInOut):
     """
-    Parent class for stationary and timevariant loudness classes
+    Parent class for stationary and timevariant loudness classes.
+    
+    Uses third party code from `mosqito 
+    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
 
     References
     ==========
@@ -88,9 +91,6 @@ class LoudnessStationary(_Loudness):
     """
     Calculates the stationary loudness according to ISO 532-1 (Zwicker) 
     from a given source.
-
-    Uses third party code from `mosqito 
-    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
     """
     # Union of Float or CArray representing overall loudness for each channel.
     overall_loudness = Union(Float(), CArray(),
