@@ -37,7 +37,7 @@ Classes in Acoular and their inheritance
 
 
 .. inheritance-diagram:: acoular.environments acoular.calib acoular.configuration
-                acoular.fbeamform acoular.grids acoular.microphones acoular.sdinput 
+                acoular.fbeamform acoular.grids acoular.loudness acoular.microphones acoular.sdinput 
                 acoular.signals acoular.sources acoular.spectra acoular.tbeamform
                 acoular.tools acoular.tprocess acoular.trajectory
     :top-classes: acoular.environments.Environment, 

@@ -3,6 +3,7 @@
 .. autosummary::
     :toctree: generated/
 
+    Loudness
     LoudnessStationary
     LoudnessTimevariant
 
@@ -35,33 +36,39 @@ from acoular import (
 import math
 
 
-class _Loudness(TimeInOut):
+class Loudness(TimeInOut):
     """
-    Parent class for stationary and timevariant loudness classes.
+    Base class for stationary and timevariant loudness calculation. Get samples from :attr:`source`.
     
-    Uses third party code from `mosqito 
-    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
+    This class has no real functionality on its own and should not be used directly.
 
     References
     ==========
     - Acoustics –
       Methods for calculating loudness –
       Part 1: Zwicker method (ISO 532-1:2017, Corrected version 2017-11)
-    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
-      https://doi.org/10.5281/zenodo.11026796
     """
-    #: Data source; :class:`~acoular.sources.SamplesGenerator` or derived object.
+    
+    #: Data source; :class:`~acoular.tprocess.SamplesGenerator` or derived object.
     source = Trait(SamplesGenerator)
 
     #: Number of channels in output, as given by :attr:`source`.
     numchannels = PrototypedFrom('source', 'numchannels')
 
-    #: Sampling frequency of output signal, as given by :attr:`source`.
+    #: Float representing the sampling frequency of output signal, as given by :attr:`source`.
     sample_freq = Float(48000, desc="Sampling frequency of the calculation,"
                         "default is 48 kHz")
 
+    #: Int representing the block size for fetching time data over result()-method (default is 4096).
+    block_size = Int(4096, desc="Block size for fetching time data, default is 4096")
+
+    #: String ({'free', 'diffuse'}) representing the type of soundfield corresponding to ISO 532-1:2017 (default is free).
+    field_type = String("free", desc="({'free', 'diffuse'}) Field type, default is 'free'")
+
+    #: CArray representing the bark axis in 0.1 bark steps for visualizing the loudness data.
     bark_axis = CArray(desc="Bark axis in 0.1 bark steps (size = 240)")
 
+    #: CArray representing the time axis for visualizing the loudness data.
     time_axis = CArray(desc="Time axis for timevariant loudness")
 
     _time_data = CArray(desc="Time data for loudness calculation")
@@ -73,10 +80,6 @@ class _Loudness(TimeInOut):
 
     end_sample = Int(source.numsamples, desc="Last sample for calculation")
 
-    block_size = Int(4096, desc="Block size for fetching time data, default is"
-                     "4096")
-
-    field_type = String("free", desc="Field type, default is 'free'")
 
     def _resample_to_48kHz(self):
         self._time_data = \
@@ -87,18 +90,25 @@ class _Loudness(TimeInOut):
                               self.source.sample_freq)
         print("signal resampled to 48 kHz")
 
-class LoudnessStationary(_Loudness):
+class LoudnessStationary(Loudness):
     """
     Calculates the stationary loudness according to ISO 532-1 (Zwicker) 
     from a given source.
-    """
-    # Union of Float or CArray representing overall loudness for each channel.
-    overall_loudness = Union(Float(), CArray(),
-                            desc="overall loudness (shape: `N_channels`)")
+    
+    Uses third party code from `mosqito 
+    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
+    
+    References
+    ==========
+    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
+      https://doi.org/10.5281/zenodo.11026796
 
-    # CArray representing specific loudness in sones per bark per channel.
-    specific_loudness = CArray(desc="specific loudness sones/bark per channel "
-                                "(shape: `N_bark x N_channels`).")
+    """
+    #: Union of Float or CArray representing overall loudness for each channel.
+    overall_loudness = Union(Float(), CArray(), desc='overall loudness (shape: `N_channels`)')
+
+    #: CArray representing specific loudness in sones per bark per channel.
+    specific_loudness = CArray(desc='specific loudness sones/bark per channel (shape: `N_bark x N_channels`).')
 
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
@@ -175,17 +185,26 @@ class LoudnessStationary(_Loudness):
         plt_st.plot()
 
 
-class LoudnessTimevariant(_Loudness):
+class LoudnessTimevariant(Loudness):
     """
     Calculates the timevariant loudness according to ISO 532-1 (Zwicker) 
     from a given source.
+    
+    Uses third party code from `mosqito 
+    <https://mosqito.readthedocs.io/en/latest/index.html>`__.
+    
+    References
+    ==========
+    - Green Forge Coop. (2024). MOSQITO (Version 1.2.1) [Computer software]. 
+      https://doi.org/10.5281/zenodo.11026796
     """
+    
+    #: CArray representing overall loudness for each channel per time step.
     overall_loudness = Union(CArray(),
-                             desc="overall loudness (shape: `N_channels x" 
-                             " N_times`)")
-
-    specific_loudness = CArray(desc="specific loudness sones/bark per channel "
-                               "(shape: `N_bark x N_channels x N_times`).")
+                             desc="overall loudness (shape: `N_channels x N_times`)")
+    
+    #: CArray representing specific loudness in sones per bark per channel per time step.
+    specific_loudness = CArray(desc="specific loudness sones/bark per channel (shape: `N_bark x N_channels x N_times`).")
 
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
