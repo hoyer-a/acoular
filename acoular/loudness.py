@@ -56,8 +56,7 @@ class Loudness(TimeInOut):
     numchannels = PrototypedFrom('source', 'numchannels')
 
     #: Float representing the sampling frequency of output signal, as given by :attr:`source`.
-    sample_freq = Float(48000, desc="Sampling frequency of the calculation,"
-                        "default is 48 kHz")
+    sample_freq = Float(48000, desc="Sampling frequency of the calculation, default is 48 kHz")
 
     #: Int representing the block size for fetching time data over result()-method (default is 4096).
     block_size = Int(4096, desc="Block size for fetching time data, default is 4096")
@@ -80,7 +79,7 @@ class Loudness(TimeInOut):
 
     end_sample = Int(source.numsamples, desc="Last sample for calculation")
 
-
+    # Private method to resample the signal from source to 48 kHz
     def _resample_to_48kHz(self):
         self._time_data = \
             resample(self._time_data[:], 
@@ -118,20 +117,24 @@ class LoudnessStationary(Loudness):
         """
         print("source changed")
 
+         # Ensure block size is smaller than the number of samples.
         if self.source.numsamples < self.block_size:
             raise ValueError(f"Blocksize ({self.block_size}) must be smaller" 
                              " than the number of samples in the source "
                              f"({self.source.numsamples}).")
 
+        # Initialize time data array.
         self._time_data = np.empty((self.source.numsamples, 
                                     self.source.numchannels))
         i = 0
 
+        # Fetch data in blocks and store in time data array.
         for res in self.source.result(self.block_size):
             n_samples = res.shape[0]
             self._time_data[i : i + n_samples] = res
             i += n_samples
-
+            
+        # Call calculating method for stationary loudness
         self._calculate_loudness()
 
     def _calculate_loudness(self):
@@ -141,6 +144,7 @@ class LoudnessStationary(Loudness):
         print("Calculating stationary loudness... depending on the file size, " 
               "this might take a while")
         
+        # Resample if sample frequency is not 48 kHz.
         if self.source.sample_freq != 48000:
             self._resample_to_48kHz()
 
@@ -153,9 +157,11 @@ class LoudnessStationary(Loudness):
             warnings.warn("File to big to be processed at once. File will be"
                           " processed channel wise", RuntimeWarning)
         
+            # Initialize loudness arrays.
             self.overall_loudness = np.zeros(self.numchannels)
             self.specific_loudness = np.zeros((240, self.numchannels))
 
+            # Process each channel individually.
             for i in range(self.numchannels):
                 N, N_spec, self.bark_axis = loudness_zwst(self._time_data[:,i], 
                                           self.sample_freq, 
@@ -164,6 +170,7 @@ class LoudnessStationary(Loudness):
                 self.specific_loudness[:,i] = N_spec
 
         else:   
+            # Process all data at once.
             self.overall_loudness, self.specific_loudness, self.bark_axis = \
                 loudness_zwst(self._time_data[:], self.sample_freq, 
                               field_type=self.field_type)[0:3]
@@ -212,7 +219,7 @@ class LoudnessTimevariant(Loudness):
         """
         Fetches time data via result() in blocks of size `block_size`.
         """
-
+        # Ensure block size is smaller than the number of samples.
         if self.source.numsamples < self.block_size:
             raise ValueError(f"Blocksize ({self.block_size}) must be smaller" 
                              " than the number of samples in the source "
@@ -220,14 +227,17 @@ class LoudnessTimevariant(Loudness):
 
         print("source changed")
 
+        # Initialize time data array.
         self._time_data = np.empty((self.source.numsamples, self.numchannels))
         i = 0
 
+        # Fetch data in blocks and store in time data array.
         for res in self.source.result(self.block_size):
             n_samples = res.shape[0]
             self._time_data[i : i + n_samples] = res
             i += n_samples
 
+        # Call calculating method for timevaraint loudness
         self._calculate_loudness()
 
     def _calculate_loudness(self):
@@ -237,17 +247,19 @@ class LoudnessTimevariant(Loudness):
         print("Calculating timevariant loudness... depending on the file size, " 
               "this might take a while")
         
-        # resample to 48 kHz
+        # Resample if sample frequency is not 48 kHz.
         if self.source.sample_freq != 48000:
             self._resample_to_48kHz()
 
-        # get ntime, code from mosqito
+        # Determine number of time steps, code from mosqito
         dec_factor = int(self.sample_freq / 2000)
         n_time = int(len(self._time_data[:,0][::dec_factor]) / 4)
         
+        # Initialize loudness arrays.
         self.overall_loudness = np.zeros((self.numchannels, n_time))
         self.specific_loudness = np.zeros((240, self.numchannels, n_time))
 
+        # Process each channel individually.
         for i in range(self.numchannels):
             overall_loudness, specific_loudness, self.bark_axis, self.time_axis\
                 = loudness_zwtv(self._time_data[:,i], self.sample_freq,
@@ -255,7 +267,7 @@ class LoudnessTimevariant(Loudness):
             
             self.overall_loudness[i,:] = overall_loudness
             self.specific_loudness[:, i, :] = specific_loudness
-
+            
     def show(self, m):
         """
         Create interactive plot to display the overall loudness over time and the specific loudness over time for each microphone.\
