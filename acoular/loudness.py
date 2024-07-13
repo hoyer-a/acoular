@@ -54,34 +54,32 @@ class Loudness(TimeInOut):
     #: Number of channels in output, as given by :attr:`source`.
     numchannels = PrototypedFrom('source', 'numchannels')
 
-    #: Float representing the sampling frequency of output signal, as given by :attr:`source`.
-    sample_freq = Float(48000, 
-                        desc="Sampling frequency of the calculation, "
-                        "default is 48 kHz")
+    #: Float representing the sampling frequency of output signal,
+    #:  as given by :attr:`source` (default is 48000)
+    sample_freq = Float(48000, desc='Sampling frequency of the calculation, default is 48 kHz')
 
-    #: Int representing the block size for fetching time data over result()-method (default is 4096).
-    block_size = Int(4096, 
-                     desc="Block size for fetching time data, default is 4096")
+    #: Integer representing the block size for fetching time data over
+    #:  result()-method (default is 4096).
+    block_size = Int(4096, desc='Block size for fetching time data, default is 4096')
 
-    #: String ({'free', 'diffuse'}) representing the type of soundfield corresponding to ISO 532-1:2017 (default is free).
-    field_type = String("free", 
-                        desc="({'free', 'diffuse'}) Field type, "
-                        "default is 'free'")
+    #: String ({'free', 'diffuse'}) representing the type of soundfield 
+    #:  corresponding to ISO 532-1:2017 (default is free).
+    field_type = String("free", desc='({`free`, `diffuse`}) Field type, default is `free` ')
 
-    #: CArray representing the bark axis in 0.1 bark steps for visualizing the loudness data.
-    bark_axis = CArray(desc="Bark axis in 0.1 bark steps (size = 240)")
+    #: CArray representing the bark axis in 0.1 bark steps for visualizing the 
+    #:  loudness data.
+    bark_axis = CArray(desc='Bark axis in 0.1 bark steps (size = 240)')
 
     #: CArray representing the time axis for visualizing the loudness data.
-    time_axis = CArray(desc="Time axis for timevariant loudness")
+    time_axis = CArray(desc='Time axis for timevariant loudness')
 
-    _time_data = CArray(desc="Time data for loudness calculation")
+    _time_data = CArray(desc='Time data for loudness calculation')
 
-    _n_samples = Int(source.numsamples,
-                     desc="Number of samples for loudness calculation")
+    _n_samples = Int(source.numsamples,desc='Number of samples for loudness calculation')
 
-    start_sample = Int(0, desc="First sample for calculation")
+    start_sample = Int(0, desc='First sample for calculation')
 
-    end_sample = Int(source.numsamples, desc="Last sample for calculation")
+    end_sample = Int(source.numsamples, desc='Last sample for calculation')
 
     # Private method to resample the signal from source to 48 kHz
     def _resample_to_48kHz(self):
@@ -108,12 +106,10 @@ class LoudnessStationary(Loudness):
 
     """
     #: Union of Float or CArray representing overall loudness for each channel.
-    overall_loudness = Union(Float(), CArray(), 
-                             desc='overall loudness (shape: `N_channels`)')
+    overall_loudness = Union(Float(), CArray(),desc='overall loudness (shape: `N_channels`)')
 
     #: CArray representing specific loudness in sones per bark per channel.
-    specific_loudness = CArray(desc='specific loudness sones/bark per channel'
-                               ' (shape: `N_bark x N_channels`).')
+    specific_loudness = CArray(desc='specific loudness sones/bark per channel (shape: `N_bark x N_channels`).')
 
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
@@ -217,13 +213,10 @@ class LoudnessTimevariant(Loudness):
     """
 
     #: CArray representing overall loudness for each channel per time step.
-    overall_loudness = Union(CArray(),
-                             desc="overall loudness (shape: `N_channels x "
-                             "N_times`)")
+    overall_loudness = Union(CArray(), desc='overall loudness (shape: `N_channels x N_times`)')
 
     #: CArray representing specific loudness in sones per bark per channel per time step.
-    specific_loudness = CArray(desc="specific loudness sones/bark per channel "
-                               "(shape: `N_bark x N_channels x N_times`).")
+    specific_loudness = CArray(desc='specific loudness sones/bark per channel (shape: `N_bark x N_channels x N_times`).')
 
     # observe decorator introduces errors and misbehavior e.g. double calculation
     #@observe('source', post_init=False)
