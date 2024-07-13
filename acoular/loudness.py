@@ -254,9 +254,8 @@ class LoudnessTimevariant(Loudness):
 
         # Determine number of time steps, code from mosqito
         dec_factor = int(self.sample_freq / 2000)
-        n_time = int(len(self._time_data[:,0][::dec_factor]) / 4)
-
-        # Initialize loudness arrays.
+        n_time = math.ceil(len(self._time_data[:,0][::dec_factor]) / 4)
+        
         self.overall_loudness = np.zeros((self.numchannels, n_time))
         self.specific_loudness = np.zeros((240, self.numchannels, n_time))
 
