@@ -334,7 +334,7 @@ class _PlotclassST:
 
 class _PlotclassTV():
     """
-    Class for plotting animated loudness data from LoudnessTimevariant instances.
+    Class for plottting animated loudness data from LoudnessTimevariant instances.
     """
 
     def __init__(self, overall_loudness, specific_loudness, bark_axis, time_axis, m):
