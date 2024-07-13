@@ -32,6 +32,7 @@ from acoular import (
     SamplesGenerator,
 )
 
+import math
 
 class Loudness(TimeInOut):
     """
