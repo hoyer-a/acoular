@@ -184,7 +184,7 @@ class LoudnessStationary(Loudness):
                 loudness_zwst(self._time_data[:], self.sample_freq, 
                               field_type=self.field_type)[0:3]
 
-    def show(self, m):
+    def visualize(self, m):
         """
         Create interactive plot to display the overall loudness over time and 
         the specific loudness over time for each microphone. 
@@ -276,7 +276,7 @@ class LoudnessTimevariant(Loudness):
             self.overall_loudness[i,:] = overall_loudness
             self.specific_loudness[:, i, :] = specific_loudness
 
-    def show(self, m):
+    def visualize(self, m):
         """
         Create interactive plot to display the overall loudness over time and
         the specific loudness over time for each microphone.
@@ -325,8 +325,8 @@ class _PlotclassST:
             ' loudness', fontsize=12
         )
         self.ax.axis('equal')
-        self.ax.set_xlabel('x-Position [m]')
-        self.ax.set_ylabel('y-Position [m]')
+        self.ax.set_xlabel('x-Position in m')
+        self.ax.set_ylabel('y-Position in m')
         self.ax.grid(True)
 
         # Scatter plot of microphone positions with overall loudness as color
@@ -340,7 +340,7 @@ class _PlotclassST:
         # Append a new axis to the right of 'ax', with 5% width of 'ax'
         cax = divider.append_axes("right", size="5%", pad=0.1)  # Adjust pad
         cbar = self.fig.colorbar(scatter, cax=cax)
-        cbar.set_label('Overall Loudness (Sone)')
+        cbar.set_label('Overall Loudness in Sone')
 
         # Configure second subplot (specific loudness) and leave it empty
         self.ax2.set_title('Channelwise Specific Loudness', fontsize=12)
@@ -398,7 +398,8 @@ class _PlotclassST:
                 transform=self.ax2.transAxes,
                 verticalalignment='top', horizontalalignment='left',
                 bbox=dict(boxstyle='round,pad=0.3', edgecolor='black',
-                          facecolor='white')
+                          facecolor='white'),
+                fontsize = 14
             )
 
         # Redraw the figure canvas to reflect updates
@@ -428,24 +429,22 @@ class _PlotclassTV:
         # Set up the main figure with a constrained layout and specific size
         self.fig = plt.figure(figsize=(20, 12), constrained_layout=True)
         self.fig.suptitle(
-            'Timevaraiant Loudness for Microphone Array', fontsize=16
+            'Timevariant Loudness for Microphone Array', fontsize=16
         )
 
         # Use gridspec_kw to control height ratios of rows and spacing between
         # subplots
-        spec = self.fig.add_gridspec(2, 3, wspace=0.1)
+        spec = self.fig.add_gridspec(2, 2, wspace=0.05, hspace=0.05)
 
         self.ax = self.fig.add_subplot(spec[0, 0])
         self.ax2 = self.fig.add_subplot(spec[0, 1])
-        self.ax3 = self.fig.add_subplot(spec[1, :2])
+        self.ax3 = self.fig.add_subplot(spec[1, :])
 
         # Configure main scatter plot (microphone array)
-        self.ax.set_title(
-            'Click on point or use `n` or `p` to plot specific loudness'
-        )
+        self.ax.set_title('Click on point or use `n` or `p` to plot specific loudness')
         self.ax.axis('equal')
-        self.ax.set_xlabel('x-Position [m]')
-        self.ax.set_ylabel('y-Position [m]')
+        self.ax.set_xlabel('x-Position in m')
+        self.ax.set_ylabel('y-Position in m')
         self.ax.grid(True)
 
         # Scatter plot of microphone positions with averaged overall loudness
@@ -464,22 +463,22 @@ class _PlotclassTV:
         cax = divider.append_axes("right", size="5%", pad=0.05)  # Adjust pad
 
         cbar = self.fig.colorbar(scatter, cax=cax)
-        cbar.set_label('Averaged Overall Loudness (Sone)')
+        cbar.set_label('Averaged Overall Loudness in Sone')
 
         # Initialize PointBrowser for interactive point selection
-        self.browser = PointBrowser(self)
+        self.browser = _PointBrowser(self)
         self.fig.canvas.mpl_connect('pick_event', self.browser.on_pick)
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
 
         # Initial setup for second subplot (overall loudness over time)
         self.ax2.set_title('Overall Loudness Over Time')
-        self.ax2.set_xlabel('Time [s]')
-        self.ax2.set_ylabel('Overall Loudness [Sone]')
+        self.ax2.set_xlabel('Time (s)')
+        self.ax2.set_ylabel('Overall Loudness in Sone')
         self.ax2.grid(True)
 
         # Initial setup for third subplot (specific loudness spectrogram)
         self.ax3.set_title('Specific Loudness Spectrogram')
-        self.ax3.set_xlabel('Time [s]')
+        self.ax3.set_xlabel('Time in s')
         self.ax3.set_ylabel('Bark')
         self.ax3.grid(True)
         bark_ticks = np.arange(0, 26, 5)
@@ -522,7 +521,7 @@ class _PlotclassTV:
                 cmap='viridis', origin='lower'
             )
             self.colorbar = self.fig.colorbar(
-                cax, ax=self.ax3, label='Specific Loudness (Sone/Bark)'
+                cax, ax=self.ax3, label='Specific Loudness in Sone/Bark'
             )
 
         self.ax3.relim()
@@ -537,7 +536,7 @@ class _PlotclassTV:
         self.fig.canvas.draw()
 
 
-class PointBrowser:
+class _PointBrowser:
     """
     Interactive class for selecting and highlighting points on a plot.
     Click on a point to select and highlight it -- the data that
@@ -560,7 +559,7 @@ class PointBrowser:
         # Create a text label in the plot to show the selected point index.
         self.text = self.plot_instance.ax.text(
             0.05, 0.95, 'Selected: none', transform=self.plot_instance.ax.transAxes,
-            va='top', fontsize=16
+            va='top', fontsize=14
         )
 
         # Create a plot marker to highlight the selected point, initially
