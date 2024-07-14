@@ -13,25 +13,12 @@ from os import path
 
 import acoular
 import numpy as np
-from pylab import colorbar, figure, imshow, show, subplot, tight_layout, title
-
-# ===============================================================================
-# example to visualize stationary loudness
-# use qt5 backend to enable interactive plot
-# ===============================================================================
-
-#datafile = path.join(os.getcwd(),'data\\three_sources.h5')
-#micgeofile = path.join(os.getcwd(),'data\\array_64.xml')
-
-#mg = acoular.MicGeom(from_file = micgeofile)
-#ts = acoular.MaskedTimeSamples(name = datafile)
-
-#ld_st = acoular.LoudnessStationary(source=ts)
-#ld_st.show(mg)
+from pylab import colorbar, imshow, show, title
 
 # ===============================================================================
 # example to visualize time variant loudeness
 # use qt5 backend to enable interactive plot
+# usage of stationary loudness is executed in a similar way
 # ===============================================================================
 
 micgeofile = path.join(path.split(acoular.__file__)[0], 'xml', 'array_56.xml')
@@ -40,8 +27,10 @@ datafile = 'example_data.h5'
 mg = acoular.MicGeom(from_file=micgeofile)
 ts = acoular.TimeSamples(name=datafile)
 
-ld_tv = acoular.LoudnessTimevariant(source=ts)
+ld_tv = acoular.LoudnessTimevariant(source=ts, field_type="free")
 ld_tv.show(mg)
+
+
 
 # ===============================================================================
 # example in beamforming application
@@ -52,7 +41,7 @@ datafile = 'example_data.h5'
 mg = acoular.MicGeom(from_file=micgeofile)
 ts = acoular.MaskedTimeSamples(name=datafile)
 
-#ts.start = 0.2*48000
+ts.start = 0.2*48000
 
 rg = acoular.RectGrid(x_min=-0.6, x_max=0.0, y_min=-0.3, y_max=0.3, z=0.68, increment=0.05)
 env = acoular.Environment(c=346.04)
