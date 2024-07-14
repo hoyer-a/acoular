@@ -340,7 +340,7 @@ class _PlotclassST:
         # Append a new axis to the right of 'ax', with 5% width of 'ax'
         cax = divider.append_axes("right", size="5%", pad=0.1)  # Adjust pad
         cbar = self.fig.colorbar(scatter, cax=cax)
-        cbar.set_label('Overall Loudness in Sone')
+        cbar.set_label('Loudness in Sone')
 
         # Configure second subplot (specific loudness) and leave it empty
         self.ax2.set_title('Channelwise Specific Loudness', fontsize=12)
@@ -463,7 +463,7 @@ class _PlotclassTV:
         cax = divider.append_axes("right", size="5%", pad=0.05)  # Adjust pad
 
         cbar = self.fig.colorbar(scatter, cax=cax)
-        cbar.set_label('Averaged Overall Loudness in Sone')
+        cbar.set_label('Averaged Loudness in Sone')
 
         # Initialize PointBrowser for interactive point selection
         self.browser = _PointBrowser(self)
@@ -471,9 +471,9 @@ class _PlotclassTV:
         self.fig.canvas.mpl_connect('key_press_event', self.browser.on_press)
 
         # Initial setup for second subplot (overall loudness over time)
-        self.ax2.set_title('Overall Loudness Over Time')
-        self.ax2.set_xlabel('Time (s)')
-        self.ax2.set_ylabel('Overall Loudness in Sone')
+        self.ax2.set_title('Loudness Over Time')
+        self.ax2.set_xlabel('Time in s')
+        self.ax2.set_ylabel('Loudness in Sone')
         self.ax2.grid(True)
 
         # Initial setup for third subplot (specific loudness spectrogram)
@@ -509,7 +509,7 @@ class _PlotclassTV:
 
         # Set title for ax2 subplot
         self.ax2.set_title(
-            f'Overall Loudness Over Time (Microphone {dataind})'
+            f'Loudness Over Time (Microphone {dataind})'
         )
 
         # Update specific loudness spectrogram
