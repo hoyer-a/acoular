@@ -325,8 +325,8 @@ class _PlotclassST:
             ' loudness', fontsize=12
         )
         self.ax.axis('equal')
-        self.ax.set_xlabel('x-Position (m)')
-        self.ax.set_ylabel('y-Position (m)')
+        self.ax.set_xlabel('x-Position in m')
+        self.ax.set_ylabel('y-Position in m')
         self.ax.grid(True)
 
         # Scatter plot of microphone positions with overall loudness as color
@@ -340,7 +340,7 @@ class _PlotclassST:
         # Append a new axis to the right of 'ax', with 5% width of 'ax'
         cax = divider.append_axes("right", size="5%", pad=0.1)  # Adjust pad
         cbar = self.fig.colorbar(scatter, cax=cax)
-        cbar.set_label('Overall Loudness (Sone)')
+        cbar.set_label('Overall Loudness in Sone')
 
         # Configure second subplot (specific loudness) and leave it empty
         self.ax2.set_title('Channelwise Specific Loudness', fontsize=12)
@@ -443,8 +443,8 @@ class _PlotclassTV:
         # Configure main scatter plot (microphone array)
         self.ax.set_title('Click on point or use `n` or `p` to plot specific loudness')
         self.ax.axis('equal')
-        self.ax.set_xlabel('x-Position (m)')
-        self.ax.set_ylabel('y-Position (m)')
+        self.ax.set_xlabel('x-Position in m')
+        self.ax.set_ylabel('y-Position in m')
         self.ax.grid(True)
 
         # Scatter plot of microphone positions with averaged overall loudness
@@ -463,7 +463,7 @@ class _PlotclassTV:
         cax = divider.append_axes("right", size="5%", pad=0.05)  # Adjust pad
 
         cbar = self.fig.colorbar(scatter, cax=cax)
-        cbar.set_label('Averaged Overall Loudness (Sone)')
+        cbar.set_label('Averaged Overall Loudness in Sone')
 
         # Initialize PointBrowser for interactive point selection
         self.browser = _PointBrowser(self)
@@ -473,12 +473,12 @@ class _PlotclassTV:
         # Initial setup for second subplot (overall loudness over time)
         self.ax2.set_title('Overall Loudness Over Time')
         self.ax2.set_xlabel('Time (s)')
-        self.ax2.set_ylabel('Overall Loudness (Sone)')
+        self.ax2.set_ylabel('Overall Loudness in Sone')
         self.ax2.grid(True)
 
         # Initial setup for third subplot (specific loudness spectrogram)
         self.ax3.set_title('Specific Loudness Spectrogram')
-        self.ax3.set_xlabel('Time (s)')
+        self.ax3.set_xlabel('Time in s')
         self.ax3.set_ylabel('Bark')
         self.ax3.grid(True)
         bark_ticks = np.arange(0, 26, 5)
@@ -521,7 +521,7 @@ class _PlotclassTV:
                 cmap='viridis', origin='lower'
             )
             self.colorbar = self.fig.colorbar(
-                cax, ax=self.ax3, label='Specific Loudness (Sone/Bark)'
+                cax, ax=self.ax3, label='Specific Loudness in Sone/Bark'
             )
 
         self.ax3.relim()
