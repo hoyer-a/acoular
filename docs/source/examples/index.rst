@@ -8,6 +8,7 @@ Examples
     example_airfoil_in_open_jet_beamforming
     example_airfoil_in_open_jet_steering_vectors
     example_airfoil_in_open_jet_cmf
+    example_loudness
     example_rotating_point_source
     example_3D_beamforming
 
@@ -26,6 +27,10 @@ Examples
     * - :doc:`example_airfoil_in_open_jet_cmf`
 
       - Demonstrates the CMF method with different optimization schemes.
+
+    * - :doc:`example_loudness`
+
+      - Demonstrates the calculation and  visualisation of timevariant loudness and a beamforming approach on loudness as well.
 
     * - :doc:`example_rotating_point_source`
 
