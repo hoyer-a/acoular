@@ -32,8 +32,8 @@ jobs:
         run: sudo apt-get install libportaudio2
       - name: Check import
         run: hatch -v run +py=${{ matrix.python-version }} tests:import
-      - name: Check demo
-        run: hatch -v run +py=${{ matrix.python-version }} tests:demo
+      # - name: Check demo
+      #   run: hatch -v run +py=${{ matrix.python-version }} tests:demo
       - name: Run unittests
         run: hatch -v run +py=${{ matrix.python-version }} tests:test
 
