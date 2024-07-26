@@ -74,10 +74,6 @@ class Loudness(TimeInOut):
 
     _n_samples = Int(source.numsamples,desc='Number of samples for loudness calculation')
 
-    start_sample = Int(0, desc='First sample for calculation')
-
-    end_sample = Int(source.numsamples, desc='Last sample for calculation')
-
     # Private method to resample the signal from source to 48 kHz
     def _resample_to_48kHz(self):
         self._time_data = \
@@ -112,8 +108,6 @@ class LoudnessStationary(Loudness):
     #: CArray representing specific loudness in sones per bark per channel.
     specific_loudness = CArray(desc='specific loudness sones/bark per channel (shape: `N_bark x N_channels`).')
 
-    # observe decorator introduces errors and misbehavior e.g. double calculation
-    #@observe('source', post_init=False)
     def _source_changed(self):
         """
         Fetches time data via result() in blocks of size `block_size`.
@@ -157,7 +151,7 @@ class LoudnessStationary(Loudness):
                 or (self._n_samples > self.sample_freq * 14 * 60 \
                     and self._n_samples > 16):
 
-            warnings.warn("File to big to be processed at once. File will be"
+            warnings.warn("File too big to be processed at once. File will be"
                           " processed channel wise", RuntimeWarning)
 
             # Initialize loudness arrays
@@ -223,8 +217,6 @@ class LoudnessTimevariant(Loudness):
     #: CArray representing specific loudness in sones per bark per channel per time step
     specific_loudness = CArray(desc='specific loudness sones/bark per channel (shape: `N_bark x N_channels x N_times`).')
 
-    # observe decorator introduces errors and misbehavior e.g. double calculation
-    #@observe('source', post_init=False)
     def _source_changed(self):
         """Fetches time data via result() in blocks of size `block_size`."""
         
