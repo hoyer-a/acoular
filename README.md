@@ -23,6 +23,7 @@ It is aimed at applications in acoustic testing. Multichannel data recorded by a
 - arbitrary stationary background flow can be considered for all methods
 - efficient cross spectral matrix computation
 - flexible modular time domain processing: n-th octave band filters, fast, slow, and impulse weighting, A-, C-, and Z-weighting, filter bank, zero delay filters
+- calculation and visualisation of stationary and timevariant loudness according to Zwicker (ISO.532-1) 
 - time domain simulation of array microphone signals from fixed and arbitrarily moving sources in arbitrary flow
 - fully object-oriented interface
 - lazy evaluation: while processing blocks are set up at any time, (expensive) computations are only performed when needed
