@@ -62,5 +62,6 @@ oal = oal.reshape(rg.shape)
 
 plt.imshow(oal.T, vmax=np.max(oal), origin='lower', interpolation='nearest', extent=rg.extend())
 plt.title('Loudeness')
-plt.colorbar()
+col= plt.colorbar()
+col.set_label('stationary loudness')
 plt.show()
