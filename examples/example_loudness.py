@@ -17,8 +17,7 @@ import matplotlib.pyplot as plt
 
 # ===============================================================================
 # example to visualize time variant loudeness
-# use qt5 backend to enable interactive plot
-# usage of stationary loudness is executed in a similar way
+# stationary loudness is executed similarly
 # ===============================================================================
 
 micgeofile = path.join(path.split(acoular.__file__)[0], 'xml', 'array_56.xml')
@@ -50,6 +49,8 @@ st = acoular.SteeringVector(grid=rg, mics=mg, env=env)
 # ===============================================================================
 # delay and sum beamformer in time domain
 # processing chain: beamforming, loudness
+# field_type is set "free" by default -> change of type due to expectation of
+# diffuse type in windchannel
 # ===============================================================================
 
 bt = acoular.BeamformerTime(source=ts, steer=st)
@@ -59,7 +60,8 @@ ld_bt = acoular.LoudnessStationary(source=bt, field_type="diffuse")
 oal = ld_bt.overall_loudness
 oal = oal.reshape(rg.shape)
 
-plt.imshow(oal, vmax=np.max(oal), origin='lower', interpolation='nearest', extent=rg.extend())
+plt.imshow(oal.T, vmax=np.max(oal), origin='lower', interpolation='nearest', extent=rg.extend())
 plt.title('Loudeness')
-plt.colorbar()
+col= plt.colorbar()
+col.set_label('stationary loudness')
 plt.show()
